@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galería Infinita 3D</title>
-  <meta name="description" content="Galería interactiva infinita estilo moodboard con autocentrado magnético y fondo crema">
+  <meta name="description"
+    content="Galería interactiva infinita estilo moodboard con autocentrado magnético y fondo crema">
   <style>
     :root {
       --perspective: 1100px;
@@ -20,7 +22,8 @@
       padding: 0;
     }
 
-    html, body {
+    html,
+    body {
       width: 100vw;
       height: 100vh;
       overflow: hidden;
@@ -36,7 +39,7 @@
       position: fixed;
       inset: 0;
       background-color: var(--bg-cream);
-      background-image: 
+      background-image:
         linear-gradient(rgba(140, 120, 80, 0.08) 1px, transparent 1px),
         linear-gradient(90deg, rgba(140, 120, 80, 0.08) 1px, transparent 1px);
       background-size: 36px 36px;
@@ -255,6 +258,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <!-- Input de archivos oculto -->
@@ -274,7 +278,9 @@
 
   <!-- Estado Inicial Vacío -->
   <div class="empty-state" id="empty-state">
-    <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    <svg viewBox="0 0 24 24">
+      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </svg>
     <h2>Haz doble clic en la pantalla</h2>
     <p>para cargar tus imágenes y explorar el lienzo infinito</p>
   </div>
@@ -289,12 +295,12 @@
 
   <script>
     // ── Referencias DOM ──
-    const fileInput   = document.getElementById('file-input');
-    const emptyState  = document.getElementById('empty-state');
-    const viewport    = document.getElementById('galaxy-viewport');
-    const lightbox    = document.getElementById('lightbox');
+    const fileInput = document.getElementById('file-input');
+    const emptyState = document.getElementById('empty-state');
+    const viewport = document.getElementById('galaxy-viewport');
+    const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
-    const lightboxGlow= document.getElementById('lightbox-glow');
+    const lightboxGlow = document.getElementById('lightbox-glow');
 
     // ── Catálogo de imágenes cargadas ──
     let userImages = [];
@@ -308,21 +314,24 @@
     let lightboxActive = false;
 
     // Dimensiones de tarjetas base
-    const CARD_W = 224;
-    const CARD_H = 312;
+    const CARD_W = 216;
+    const CARD_H = 302;
 
-    // ── Disposición Estilo Moodboard / Pinterest (Gap Ajustado y Cohesivo) ──
-    // Separación horizontal (252px) y vertical (348px) para un gap limpio de ~18-20px
-    const STEP_X = 252;
-    const STEP_Y = 348;
+    // ── Disposición Triangular / Hexagrama Orgánica (CERO Columnas, CERO Filas Rígidas) ──
+    // Los renglones impares se desfasan 50% horizontalmente (malla hexagonal / hexagrama),
+    // de modo que NINGUNA tarjeta queda en la misma línea vertical ni horizontal.
+    // Separación amplia y considerable que garantiza una distancia limpia y visible de 32-45px entre tarjetas.
+    const SPACING_X = 286;
+    const SPACING_Y = 368;
 
-    // Desplazamiento vertical por columna (stagger) para romper cualquier alineación horizontal
-    function getColumnStaggerY(col) {
-      const c = col;
-      if (c === 0) return 0; // Columna central tiene la imagen principal en Y = 0
-      const pattern = [0, 36, -30, 26, -32, 38, -26];
-      const idx = ((Math.abs(c) % pattern.length) + pattern.length) % pattern.length;
-      return pattern[idx] * (c < 0 ? -1 : 1);
+    // Jitter pseudo-aleatorio determinista para un aspecto 100% orgánico de moodboard/collage
+    function getCellJitter(q, r) {
+      if (q === 0 && r === 0) return { jx: 0, jy: 0 }; // Centro maestro en (0,0)
+      const h1 = Math.sin(q * 12.9898 + r * 78.233) * 43758.5453;
+      const h2 = Math.cos(q * 26.6514 + r * 45.164) * 28462.1354;
+      const jx = (h1 - Math.floor(h1) - 0.5) * 18; // ±9px
+      const jy = (h2 - Math.floor(h2) - 0.5) * 16; // ±8px
+      return { jx, jy };
     }
 
     // Cámara con posición, inercia y autocentrado magnético
@@ -344,7 +353,7 @@
 
     // Efecto Ojo de Pez
     const MAX_SINK_Z = 360;
-    const MAX_TILT   = 15;
+    const MAX_TILT = 15;
 
     // Piscina de tarjetas DOM para alto rendimiento (60-120fps)
     const cardPool = [];
@@ -431,14 +440,14 @@
 
     initCardPool();
 
-    // ── Mapeo armónico de imágenes en el moodboard ──
-    // Asegura que (0,0) es siempre imagen 0, y que las vecinas nunca coinciden
-    function getMoodboardImageIndex(c, r, count) {
+    // ── Mapeo armónico de imágenes en la malla hexagonal ──
+    // Asegura que (0,0) es siempre imagen 0, y que las 6 vecinas nunca repiten imagen
+    function getMoodboardImageIndex(q, r, count) {
       if (count <= 1) return 0;
-      if (c === 0 && r === 0) return 0; // Imagen central principal
+      if (q === 0 && r === 0) return 0; // Imagen central principal
 
       const k = (count % 2 === 0) ? (count - 1) : 3;
-      let val = c * 2 + r * k;
+      let val = q * 2 + r * k + (Math.abs(r) % 2 === 1 ? 1 : 0);
       return ((val % count) + count) % count;
     }
 
@@ -589,21 +598,21 @@
 
     // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
     function snapToNearestCard() {
-      const approxC = Math.round(camera.targetX / STEP_X);
+      const approxR = Math.round(camera.targetY / SPACING_Y);
       let bestX = 0;
       let bestY = 0;
       let minDistance = Infinity;
 
-      // Buscar en las columnas y filas inmediatas
-      for (let dc = -1; dc <= 1; dc++) {
-        const c = approxC + dc;
-        const colShiftY = getColumnStaggerY(c);
-        const approxR = Math.round((camera.targetY - colShiftY) / STEP_Y);
+      for (let dr = -1; dr <= 1; dr++) {
+        const r = approxR + dr;
+        const rowShiftX = (Math.abs(r) % 2 === 1) ? 0.5 * SPACING_X : 0;
+        const approxQ = Math.round((camera.targetX - rowShiftX) / SPACING_X);
 
-        for (let dr = -1; dr <= 1; dr++) {
-          const r = approxR + dr;
-          const worldX = c * STEP_X;
-          const worldY = r * STEP_Y + colShiftY;
+        for (let dq = -1; dq <= 1; dq++) {
+          const q = approxQ + dq;
+          const jitter = getCellJitter(q, r);
+          const worldX = q * SPACING_X + rowShiftX + jitter.jx;
+          const worldY = r * SPACING_Y + jitter.jy;
 
           const dist = Math.hypot(camera.x - worldX, camera.y - worldY);
           if (dist < minDistance) {
@@ -619,7 +628,7 @@
       camera.targetY += (bestY - camera.targetY) * AUTO_SNAP_SPEED;
     }
 
-    // ── Renderizado Infinito Moodboard + Centro Ampliado ──
+    // ── Renderizado Infinito Hexagrama Orgánico + Centro Ampliado ──
     function renderInfiniteGallery() {
       if (userImages.length === 0) return;
 
@@ -629,33 +638,32 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      // Calcular columnas visibles alrededor de la cámara
-      const buffer = 520;
-      const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
-      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
+      // Calcular filas y columnas visibles alrededor de la cámara
+      const buffer = 550;
+      const minRow = Math.floor((camera.y - cy - buffer) / SPACING_Y) - 1;
+      const maxRow = Math.ceil((camera.y + cy + buffer) / SPACING_Y) + 1;
 
       let poolIndex = 0;
 
-      for (let c = minCol; c <= maxCol; c++) {
-        const colShiftY = getColumnStaggerY(c);
-        const worldX = c * STEP_X;
+      for (let r = minRow; r <= maxRow; r++) {
+        const rowShiftX = (Math.abs(r) % 2 === 1) ? 0.5 * SPACING_X : 0;
+        const minCol = Math.floor((camera.x - cx - buffer - rowShiftX) / SPACING_X) - 1;
+        const maxCol = Math.ceil((camera.x + cx + buffer - rowShiftX) / SPACING_X) + 1;
 
-        // Filas visibles en esta columna
-        const minRow = Math.floor((camera.y - cy - buffer - colShiftY) / STEP_Y) - 1;
-        const maxRow = Math.ceil((camera.y + cy + buffer - colShiftY) / STEP_Y) + 1;
-
-        for (let r = minRow; r <= maxRow; r++) {
+        for (let q = minCol; q <= maxCol; q++) {
           if (poolIndex >= MAX_POOL_SIZE) break;
 
-          const worldY = r * STEP_Y + colShiftY;
+          const jitter = getCellJitter(q, r);
+          const worldX = q * SPACING_X + rowShiftX + jitter.jx;
+          const worldY = r * SPACING_Y + jitter.jy;
 
           // Proyección en pantalla
           const screenX = worldX - camera.x + cx - (CARD_W / 2);
           const screenY = worldY - camera.y + cy - (CARD_H / 2);
 
           // Descartar si cae muy fuera de la ventana
-          if (screenX + CARD_W < -120 || screenX > winW + 120) continue;
-          if (screenY + CARD_H < -120 || screenY > winH + 120) continue;
+          if (screenX + CARD_W < -140 || screenX > winW + 140) continue;
+          if (screenY + CARD_H < -140 || screenY > winH + 140) continue;
 
           const cardItem = cardPool[poolIndex];
           poolIndex++;
@@ -664,7 +672,7 @@
           cardItem.worldY = worldY;
 
           // Asignar imagen
-          const imgIdx = getMoodboardImageIndex(c, r, userImages.length);
+          const imgIdx = getMoodboardImageIndex(q, r, userImages.length);
           if (cardItem.imageIndex !== imgIdx) {
             cardItem.imageIndex = imgIdx;
             cardItem.img.src = userImages[imgIdx].thumb;
@@ -679,21 +687,12 @@
           const normDist = Math.min(dist / maxScreenDist, 1.25);
 
           // ── ESCALA DINÁMICA PROTAGÓNICA: LA IMAGEN CENTRAL ES NOTABLEMENTE MÁS GRANDE ──
-          // Radio de enfoque local (~250px): la imagen en el centro se expande a 1.28x.
-          // Las imágenes de alrededor quedan en 0.94x (claramente más pequeñas, proporcionadas y cohesivas).
-          const focusRadius = 250;
+          // Radio de enfoque local (~260px): la imagen en el centro se expande a 1.28x.
+          // Las imágenes de alrededor quedan en 0.90x (visibles, proporcionadas y con gap holgado).
+          const focusRadius = 260;
           const proximity = Math.max(0, 1.0 - Math.min(dist / focusRadius, 1.0));
           const centerBoost = Math.pow(proximity, 1.4);
-          const dynamicScale = 0.94 + centerBoost * 0.34; // 1.28x en el centro -> 0.94x alrededor
-
-          // Desplazamiento orgánico suave hacia afuera para dar paso al elemento central sin colisionar
-          let finalScreenX = screenX;
-          let finalScreenY = screenY;
-          if (dist > 35 && dist < 480) {
-            const pushFactor = Math.pow(Math.max(0, 1.0 - dist / 480), 1.25);
-            finalScreenX += (deltaX / dist) * pushFactor * 36;
-            finalScreenY += (deltaY / dist) * pushFactor * 42;
-          }
+          const dynamicScale = 0.90 + centerBoost * 0.38; // 1.28x en el centro -> 0.90x alrededor
 
           // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
           // 1. Hundimiento suave en Z hacia los bordes
@@ -719,7 +718,7 @@
 
           // Aplicar transformaciones 3D aceleradas
           cardItem.wrapper.style.display = 'block';
-          cardItem.wrapper.style.transform = `translate3d(${finalScreenX}px, ${finalScreenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${dynamicScale})`;
+          cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${dynamicScale})`;
 
           // La tarjeta en el centro tiene prioridad absoluta visual y queda al frente
           cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round(10 + centerBoost * 70);
@@ -822,4 +821,5 @@
     });
   </script>
 </body>
+
 </html>
