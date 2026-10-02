@@ -4,20 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galería Infinita 3D</title>
-  <meta name="description" content="Galería interactiva 3D infinita con efecto ojo de pez y navegación inmersiva">
+  <meta name="description" content="Galería interactiva 3D infinita con efecto ojo de pez y mosaico continuo">
   <style>
-    /* ========================================
-       FASE 2 — SISTEMA CSS
-       ======================================== */
-
     :root {
-      --perspective: 1200px;
-      --card-radius: 14px;
-      --card-gap: 28px;
-      --fisheye-depth: 350;
-      --fisheye-radius: 42vmin;
-      --tilt-max: 18;
-      --transition-smooth: 0.12s ease-out;
+      --perspective: 1100px;
+      --card-radius: 16px;
+      --card-width: 250px;
+      --card-height: 340px;
     }
 
     * {
@@ -30,36 +23,39 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      background: #07080b;
+      background: #06070a;
       font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       user-select: none;
       position: relative;
       cursor: default;
     }
 
-    /* --- Fondo base degradado --- */
-    .base-bg {
+    /* Fondo espacial profundo y limpio */
+    .space-bg {
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, #0a0c10 0%, #081021 50%, #05070c 100%);
+      background: radial-gradient(circle at 50% 50%, #0d121d 0%, #080a10 50%, #030406 100%);
       z-index: 0;
-    }
-
-    /* --- Fondo ambiental (1 sola capa optimizada) --- */
-    .ambient-bg {
-      position: fixed;
-      inset: -15%;
-      width: 130%;
-      height: 130%;
-      object-fit: cover;
-      filter: blur(80px) saturate(1.6) brightness(0.6);
-      opacity: 0;
-      transition: opacity 0.6s ease-in-out;
-      z-index: 1;
       pointer-events: none;
     }
 
-    /* --- Viewport 3D --- */
+    /* Halo ambiental suave en el centro */
+    .ambient-glow {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 900px;
+      height: 900px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(30, 60, 110, 0.18) 0%, rgba(15, 25, 45, 0.08) 50%, transparent 75%);
+      filter: blur(60px);
+      z-index: 1;
+      pointer-events: none;
+      transition: background 0.8s ease;
+    }
+
+    /* Viewport de perspectiva 3D */
     #galaxy-viewport {
       position: fixed;
       inset: 0;
@@ -69,39 +65,38 @@
       z-index: 2;
     }
 
-    #galaxy-world {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      transform-style: preserve-3d;
-      pointer-events: none;
-    }
-
-    /* --- Viñeta Fisheye (blur perimetral con una sola capa CSS) --- */
-    #fisheye-vignette {
-      position: fixed;
-      inset: 0;
-      z-index: 3;
-      pointer-events: none;
-      background: radial-gradient(
-        ellipse 48% 48% at 50% 50%,
-        transparent 0%,
-        transparent 55%,
-        rgba(8, 12, 20, 0.15) 68%,
-        rgba(8, 12, 20, 0.45) 80%,
-        rgba(8, 12, 20, 0.72) 90%,
-        rgba(8, 12, 20, 0.92) 100%
-      );
-    }
-
-    /* --- Tarjetas --- */
+    /* Tarjeta individual */
     .card-wrapper {
       position: absolute;
-      transform-style: preserve-3d;
-      will-change: transform, opacity;
-      pointer-events: auto;
       top: 0;
       left: 0;
+      width: var(--card-width);
+      height: var(--card-height);
+      will-change: transform, opacity;
+      cursor: pointer;
+      pointer-events: auto;
+      transform-origin: center center;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--card-radius);
+      transition: transform 0.18s ease-out, box-shadow 0.22s ease-out;
+      transform-style: preserve-3d;
+    }
+
+    /* Brillo trasero que NO corta ni interseca con tarjetas vecinas */
+    .card-glow {
+      position: absolute;
+      inset: -16px;
+      border-radius: calc(var(--card-radius) + 14px);
+      filter: blur(24px) saturate(2.4);
+      opacity: 0;
+      z-index: -1;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
     }
 
     .card {
@@ -109,34 +104,18 @@
       height: 100%;
       border-radius: var(--card-radius);
       overflow: hidden;
-      cursor: pointer;
       position: relative;
-      z-index: 2;
-      transform-style: preserve-3d;
-      transition: box-shadow 0.25s ease;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.10);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      background: #11141c;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s ease;
     }
 
     .card:hover {
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.15);
-    }
-
-    .card-glow {
-      position: absolute;
-      inset: -14px;
-      z-index: 1;
-      border-radius: calc(var(--card-radius) + 6px);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease, filter 0.3s ease;
-      filter: blur(0px);
-    }
-
-    .card-glow.active {
-      opacity: 0.88;
-      filter: blur(32px) saturate(2.2) brightness(1.15);
+      border-color: rgba(255, 255, 255, 0.28);
     }
 
     .card-img {
@@ -147,33 +126,109 @@
       pointer-events: none;
     }
 
-    /* --- Estado Vacío --- */
+    /* Viñeta perimetral Ojo de Pez */
+    #fisheye-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse 52% 52% at 50% 50%,
+        transparent 0%,
+        transparent 65%,
+        rgba(3, 4, 7, 0.35) 80%,
+        rgba(3, 4, 7, 0.75) 92%,
+        rgba(3, 4, 7, 0.96) 100%
+      );
+    }
+
+    /* HUD de navegación con Ctrl */
+    #ctrl-indicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 30;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.6px;
+      padding: 10px 24px;
+      background: rgba(18, 24, 38, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 30px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(50, 120, 255, 0.2);
+      opacity: 0;
+      transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #ctrl-indicator.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .ctrl-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 10px #4ade80;
+      animation: pulseDot 1.2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+
+    /* Pista inferior */
+    #nav-hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 0.74rem;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      white-space: nowrap;
+    }
+
+    /* Estado Vacío */
     .empty-state {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      z-index: 10;
+      z-index: 20;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: rgba(255, 255, 255, 0.75);
+      color: rgba(255, 255, 255, 0.8);
       text-align: center;
-      padding: 40px 52px;
-      border: 2px dashed rgba(255, 255, 255, 0.16);
+      padding: 44px 56px;
+      border: 2px dashed rgba(255, 255, 255, 0.18);
       border-radius: 22px;
       backdrop-filter: blur(14px);
       background: rgba(255, 255, 255, 0.03);
       cursor: pointer;
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.3s ease;
     }
 
     .empty-state:hover {
-      border-color: rgba(255, 255, 255, 0.4);
-      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #fff;
       transform: translate(-50%, -52%);
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6);
       background: rgba(255, 255, 255, 0.06);
     }
 
@@ -186,7 +241,7 @@
     }
 
     .empty-state h2 {
-      font-size: 1.2rem;
+      font-size: 1.25rem;
       font-weight: 600;
       letter-spacing: 0.4px;
     }
@@ -197,47 +252,21 @@
       opacity: 0.65;
     }
 
-    /* --- Indicador Ctrl --- */
-    #ctrl-indicator {
-      position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      z-index: 50;
-      color: rgba(255, 255, 255, 0.65);
-      font-size: 0.78rem;
-      letter-spacing: 0.6px;
-      padding: 9px 22px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 22px;
-      backdrop-filter: blur(12px);
-      opacity: 0;
-      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      pointer-events: none;
-      white-space: nowrap;
-    }
-
-    #ctrl-indicator.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    /* --- Lightbox --- */
+    /* Lightbox Modal */
     .lightbox-overlay {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(6, 8, 14, 0.45);
-      backdrop-filter: blur(14px);
+      background: rgba(5, 7, 12, 0.55);
+      backdrop-filter: blur(16px);
       z-index: 100;
       display: flex;
       justify-content: center;
       align-items: center;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       perspective: 1500px;
       cursor: zoom-out;
     }
@@ -248,9 +277,9 @@
     }
 
     .lightbox-content-wrapper {
-      transform: scale(0.35) translateY(70px);
+      transform: scale(0.4) translateY(60px);
       opacity: 0;
-      transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -268,81 +297,61 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      filter: blur(50px) saturate(2.5) brightness(1.2);
+      filter: blur(65px) saturate(2.4) brightness(1.25);
       z-index: 0;
-      opacity: 0.82;
+      opacity: 0.85;
       pointer-events: none;
-      transition: transform 0.15s ease-out;
-      transform: translate3d(0, 0, -35px);
+      transform: translate3d(0, 0, -25px);
     }
 
     .lightbox-img {
-      max-width: 88vw;
-      max-height: 85vh;
-      border-radius: 14px;
-      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+      max-width: 86vw;
+      max-height: 84vh;
+      border-radius: 16px;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.85);
       object-fit: contain;
-      transition: transform 0.15s ease-out;
-      transform: translate3d(0, 0, 0);
       position: relative;
       z-index: 1;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.12s ease-out;
     }
 
     #file-input {
       display: none;
-    }
-
-    /* --- Hint de navegación inferior --- */
-    #nav-hint {
-      position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(0);
-      z-index: 8;
-      color: rgba(255, 255, 255, 0.35);
-      font-size: 0.72rem;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.5s ease 1.5s;
-    }
-
-    #nav-hint.visible {
-      opacity: 1;
     }
   </style>
 </head>
 <body>
 
   <!-- Input de archivos oculto -->
-  <input type="file" id="file-input" accept="image/jpeg, image/png, image/webp, image/gif, image/avif" multiple>
+  <input type="file" id="file-input" accept="image/*" multiple>
 
-  <!-- Fondo base degradado -->
-  <div class="base-bg"></div>
+  <!-- Fondo base espacial -->
+  <div class="space-bg"></div>
 
-  <!-- Fondo ambiental optimizado (1 sola capa) -->
-  <img id="ambient-bg" class="ambient-bg" src="" alt="">
+  <!-- Halo de color ambiental suave en el centro -->
+  <div class="ambient-glow" id="ambient-glow"></div>
 
   <!-- Viewport 3D -->
-  <div id="galaxy-viewport">
-    <div id="galaxy-world"></div>
-  </div>
+  <div id="galaxy-viewport"></div>
 
-  <!-- Viñeta Fisheye (blur perimetral CSS puro) -->
+  <!-- Viñeta Ojo de Pez perimetral -->
   <div id="fisheye-vignette"></div>
 
-  <!-- Indicador Ctrl -->
-  <div id="ctrl-indicator">Ctrl + mover cursor para navegar</div>
+  <!-- HUD Ctrl activo -->
+  <div id="ctrl-indicator">
+    <span class="ctrl-dot"></span>
+    <span>Modo Vuelo Activo — Mueve el cursor a los bordes para acelerar</span>
+  </div>
 
-  <!-- Hint de navegación -->
-  <div id="nav-hint">Doble clic para agregar más imágenes &nbsp;·&nbsp; Ctrl + cursor para explorar</div>
+  <!-- Hint de navegación inferior -->
+  <div id="nav-hint" style="display: none;">Doble clic para más imágenes &nbsp;·&nbsp; Mantén presionado Ctrl para volar por la galería</div>
 
   <!-- Estado Inicial Vacío -->
   <div class="empty-state" id="empty-state">
     <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
     <h2>Haz doble clic en la pantalla</h2>
-    <p>para cargar y agregar tus imágenes</p>
+    <p>para cargar tus imágenes y generar la galería infinita</p>
   </div>
 
   <!-- Lightbox -->
@@ -354,336 +363,190 @@
   </div>
 
   <script>
-    /* ========================================
-       FASE 3–12 — MOTOR JS COMPLETO
-       ======================================== */
-
     // ── Referencias DOM ──
-    const fileInput    = document.getElementById('file-input');
-    const emptyState   = document.getElementById('empty-state');
-    const galaxyWorld  = document.getElementById('galaxy-world');
-    const ambientBg    = document.getElementById('ambient-bg');
-    const lightbox     = document.getElementById('lightbox');
-    const lightboxImg  = document.getElementById('lightbox-img');
-    const lightboxGlow = document.getElementById('lightbox-glow');
+    const fileInput     = document.getElementById('file-input');
+    const emptyState    = document.getElementById('empty-state');
+    const viewport      = document.getElementById('galaxy-viewport');
+    const ambientGlow   = document.getElementById('ambient-glow');
+    const lightbox      = document.getElementById('lightbox');
+    const lightboxImg   = document.getElementById('lightbox-img');
+    const lightboxGlow  = document.getElementById('lightbox-glow');
     const ctrlIndicator = document.getElementById('ctrl-indicator');
-    const navHint      = document.getElementById('nav-hint');
+    const navHint       = document.getElementById('nav-hint');
 
-    // ── Estado Global ──
-    let cardDataList = [];
+    // ── Catálogo de imágenes cargadas ──
+    let userImages = [];
     let rafId = null;
     let isCtrlPressed = false;
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
-    let currentAmbientSrc = '';
     let lightboxActive = false;
 
-    // Dimensiones base de tarjeta (se adaptan según cantidad)
-    const BASE_CARD_W = 260;
-    const BASE_CARD_H = 320;
+    // Dimensiones de celdas de la cuadrícula infinita
+    const CARD_W = 250;
+    const CARD_H = 340;
+    const GAP_X  = 38;
+    const GAP_Y  = 38;
+    const STEP_X = CARD_W + GAP_X; // 288px
+    const STEP_Y = CARD_H + GAP_Y; // 378px
 
-    // Cámara virtual
+    // Cámara con posición e inercia
     const camera = {
       x: 0,
       y: 0,
       targetX: 0,
       targetY: 0,
-      velocityX: 0,
-      velocityY: 0
+      vx: 0,
+      vy: 0
     };
 
-    // Constantes del efecto fisheye
-    const FISHEYE_DEPTH = 380;
-    const PAN_SPEED = 10;
-    const LERP_FACTOR = 0.075;
-    const INERTIA_DECAY = 0.93;
-    const TILT_MAX_DEG = 18;
+    // Parámetros de velocidad y aceleración (duplicados y potenciados)
+    const BASE_SPEED = 28; // Velocidad base duplicada
+    const ACCEL_POWER = 2.0; // Aceleración hacia las esquinas
+    const INERTIA_FRICTION = 0.92;
+    const LERP_SMOOTH = 0.09;
 
-    // Tamaño del mundo (se calcula según las imágenes)
-    let worldWidth = 2000;
-    let worldHeight = 2000;
+    // Efecto Ojo de Pez (Fisheye 3D)
+    const MAX_SINK_Z = 420; // Cuánto se hunden las tarjetas en los bordes
+    const MAX_TILT   = 18;  // Grados de rotación hacia el centro
 
-    // =============================================
-    // FASE 3 — CARGA Y OPTIMIZACIÓN DE IMÁGENES
-    // =============================================
+    // Piscina de tarjetas DOM para renderizado de alto rendimiento
+    const cardPool = [];
+    const MAX_POOL_SIZE = 90;
 
-    /**
-     * Optimiza una imagen redimensionándola con Canvas.
-     * Retorna una miniatura para la galería y el objectURL original para el lightbox.
-     */
+    // Generar la piscina de elementos DOM una sola vez
+    function initCardPool() {
+      for (let i = 0; i < MAX_POOL_SIZE; i++) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'card-wrapper';
+        wrapper.style.display = 'none';
+
+        const glow = document.createElement('div');
+        glow.className = 'card-glow';
+
+        const inner = document.createElement('div');
+        inner.className = 'card-inner';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const img = document.createElement('img');
+        img.className = 'card-img';
+        img.draggable = false;
+
+        card.appendChild(img);
+        inner.appendChild(glow);
+        inner.appendChild(card);
+        wrapper.appendChild(inner);
+        viewport.appendChild(wrapper);
+
+        const cardItem = {
+          wrapper,
+          inner,
+          card,
+          glow,
+          img,
+          imageIndex: -1,
+          hovered: false,
+          hoverRotX: 0,
+          hoverRotY: 0
+        };
+
+        // Eventos de hover interactivo
+        wrapper.addEventListener('mousemove', (e) => {
+          if (isCtrlPressed || lightboxActive) return;
+          const rect = wrapper.getBoundingClientRect();
+          const normX = (e.clientX - rect.left) / rect.width;
+          const normY = (e.clientY - rect.top) / rect.height;
+
+          cardItem.hoverRotX = (normY - 0.5) * 22;
+          cardItem.hoverRotY = -(normX - 0.5) * 22;
+          cardItem.hovered = true;
+
+          // Encender brillo trasero vibrante
+          glow.style.opacity = '1';
+          glow.style.background = `radial-gradient(circle at ${normX * 100}% ${normY * 100}%, rgba(100, 180, 255, 0.7) 0%, rgba(30, 80, 180, 0.35) 45%, transparent 75%)`;
+          inner.style.transform = `translateZ(50px) scale(1.08) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
+          inner.style.boxShadow = '0 32px 80px rgba(0, 0, 0, 0.85), 0 0 45px rgba(80, 160, 255, 0.45)';
+        });
+
+        wrapper.addEventListener('mouseleave', () => {
+          cardItem.hovered = false;
+          cardItem.hoverRotX = 0;
+          cardItem.hoverRotY = 0;
+          glow.style.opacity = '0';
+          inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
+          inner.style.boxShadow = '';
+        });
+
+        wrapper.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (cardItem.imageIndex >= 0 && userImages[cardItem.imageIndex]) {
+            openLightbox(userImages[cardItem.imageIndex]);
+          }
+        });
+
+        cardPool.push(cardItem);
+      }
+    }
+
+    initCardPool();
+
+    // ── Mapeo matemático determinista para duplicación infinita continua ──
+    // Garantiza que imágenes vecinas nunca sean idénticas y que el mosaico sea armónico
+    function getImageIndex(col, row, count) {
+      if (count <= 1) return 0;
+      // Staggered pattern coprime
+      const k = (count % 2 === 0) ? (count - 1) : 3;
+      const val = col + row * k;
+      return ((val % count) + count) % count;
+    }
+
+    // ── Optimización de imágenes en cliente con Canvas ──
     function optimizeImage(file) {
       return new Promise((resolve, reject) => {
         const fullSrc = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
-          const MAX_THUMB = 800;
+          const MAX_SIZE = 800;
           let w = img.naturalWidth;
           let h = img.naturalHeight;
-
-          if (w > MAX_THUMB || h > MAX_THUMB) {
-            const ratio = Math.min(MAX_THUMB / w, MAX_THUMB / h);
+          if (w > MAX_SIZE || h > MAX_SIZE) {
+            const ratio = Math.min(MAX_SIZE / w, MAX_SIZE / h);
             w = Math.round(w * ratio);
             h = Math.round(h * ratio);
           }
-
           const canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          let thumbnailSrc;
+          let thumb;
           try {
-            thumbnailSrc = canvas.toDataURL('image/webp', 0.82);
+            thumb = canvas.toDataURL('image/webp', 0.85);
           } catch {
-            thumbnailSrc = canvas.toDataURL('image/jpeg', 0.82);
+            thumb = canvas.toDataURL('image/jpeg', 0.85);
           }
 
           resolve({
-            thumbnailSrc,
+            thumb,
             fullSrc,
-            naturalWidth: img.naturalWidth,
-            naturalHeight: img.naturalHeight,
-            thumbWidth: w,
-            thumbHeight: h
+            w: img.naturalWidth,
+            h: img.naturalHeight
           });
         };
-        img.onerror = () => reject(new Error('Error cargando imagen'));
+        img.onerror = reject;
         img.src = fullSrc;
       });
     }
 
-    // =============================================
-    // FASE 4 — DISPOSICIÓN ESPACIAL (ANILLOS)
-    // =============================================
-
-    /**
-     * Calcula posiciones (x, y) para N tarjetas en anillos concéntricos centrados.
-     * Siempre centrado, sin importar la cantidad.
-     */
-    function calculatePositions(count, spacing) {
-      const positions = [];
-      if (count === 0) return positions;
-
-      // La primera imagen va al centro absoluto
-      positions.push({ x: 0, y: 0 });
-      if (count === 1) return positions;
-
-      // Casos especiales para pocas imágenes (disposiciones equilibradas)
-      if (count === 2) {
-        positions.length = 0;
-        positions.push({ x: -spacing * 0.55, y: 0 });
-        positions.push({ x:  spacing * 0.55, y: 0 });
-        return positions;
-      }
-
-      if (count === 3) {
-        positions.length = 0;
-        positions.push({ x: 0, y: -spacing * 0.35 });
-        positions.push({ x: -spacing * 0.55, y: spacing * 0.35 });
-        positions.push({ x:  spacing * 0.55, y: spacing * 0.35 });
-        return positions;
-      }
-
-      if (count === 4) {
-        positions.length = 0;
-        const off = spacing * 0.52;
-        positions.push({ x: -off, y: -off });
-        positions.push({ x:  off, y: -off });
-        positions.push({ x: -off, y:  off });
-        positions.push({ x:  off, y:  off });
-        return positions;
-      }
-
-      // Distribución general: 1 centro + anillos concéntricos
-      let placed = 1;
-      let ring = 1;
-
-      while (placed < count) {
-        const radius = ring * spacing;
-        const capacity = ring * 6; // 6 por anillo (hexagonal)
-        const toPlace = Math.min(capacity, count - placed);
-
-        // Offset angular para alternar anillos y evitar alineación monótona
-        const angleOffset = ring % 2 === 0 ? 0 : Math.PI / capacity;
-
-        for (let i = 0; i < toPlace; i++) {
-          const angle = angleOffset + (i / toPlace) * Math.PI * 2 - Math.PI / 2;
-          positions.push({
-            x: Math.cos(angle) * radius,
-            y: Math.sin(angle) * radius
-          });
-          placed++;
-        }
-        ring++;
-      }
-
-      return positions;
-    }
-
-    /**
-     * Recalcula el tamaño del mundo y reasigna posiciones a todas las tarjetas.
-     */
-    function recalculateLayout() {
-      const count = cardDataList.length;
-      if (count === 0) return;
-
-      // Adaptar el tamaño de tarjeta según la cantidad
-      let cardW, cardH;
-      if (count <= 2) {
-        cardW = 300; cardH = 380;
-      } else if (count <= 6) {
-        cardW = 250; cardH = 310;
-      } else if (count <= 12) {
-        cardW = 220; cardH = 280;
-      } else {
-        cardW = 200; cardH = 250;
-      }
-
-      const spacing = Math.max(cardW, cardH) + 32;
-      const positions = calculatePositions(count, spacing);
-
-      // Calcular el tamaño del mundo (bounding box de todas las posiciones + margen)
-      let maxX = 0, maxY = 0;
-      positions.forEach(p => {
-        maxX = Math.max(maxX, Math.abs(p.x));
-        maxY = Math.max(maxY, Math.abs(p.y));
-      });
-      worldWidth = (maxX + spacing) * 2.5;
-      worldHeight = (maxY + spacing) * 2.5;
-      // Mínimo razonable
-      worldWidth = Math.max(worldWidth, window.innerWidth * 2);
-      worldHeight = Math.max(worldHeight, window.innerHeight * 2);
-
-      // Asignar posiciones y tamaños a cada tarjeta
-      cardDataList.forEach((card, i) => {
-        if (i < positions.length) {
-          card.baseX = positions[i].x;
-          card.baseY = positions[i].y;
-        }
-
-        // Ajustar tamaño manteniendo proporción de la imagen
-        const imgRatio = card.thumbWidth / card.thumbHeight;
-        let cW = cardW;
-        let cH = cW / imgRatio;
-        if (cH > cardH) {
-          cH = cardH;
-          cW = cH * imgRatio;
-        }
-
-        card.cardW = cW;
-        card.cardH = cH;
-        card.halfW = cW / 2;
-        card.halfH = cH / 2;
-
-        card.wrapper.style.width = cW + 'px';
-        card.wrapper.style.height = cH + 'px';
-      });
-    }
-
-    // =============================================
-    // FASE 5 — CREAR TARJETAS EN EL DOM
-    // =============================================
-
-    function addCard(imageData) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'card-wrapper';
-
-      const glow = document.createElement('img');
-      glow.className = 'card-glow';
-      glow.src = imageData.thumbnailSrc;
-      glow.alt = '';
-      glow.draggable = false;
-
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const img = document.createElement('img');
-      img.className = 'card-img';
-      img.src = imageData.thumbnailSrc;
-      img.alt = '';
-      img.draggable = false;
-
-      card.appendChild(img);
-      wrapper.appendChild(glow);
-      wrapper.appendChild(card);
-      galaxyWorld.appendChild(wrapper);
-
-      const cardItem = {
-        wrapper,
-        card,
-        glow,
-        img,
-        thumbnailSrc: imageData.thumbnailSrc,
-        fullSrc: imageData.fullSrc,
-        thumbWidth: imageData.thumbWidth,
-        thumbHeight: imageData.thumbHeight,
-        baseX: 0,
-        baseY: 0,
-        cardW: BASE_CARD_W,
-        cardH: BASE_CARD_H,
-        halfW: BASE_CARD_W / 2,
-        halfH: BASE_CARD_H / 2,
-        // Estado de hover (se compone sobre la transformación base en el RAF)
-        hoverRotateX: 0,
-        hoverRotateY: 0,
-        hoverScale: 1.0,
-        isHovered: false
-      };
-
-      cardDataList.push(cardItem);
-
-      // ── Hover 3D + Glow selectivo (Fase 9) ──
-      wrapper.addEventListener('mousemove', (e) => {
-        if (isCtrlPressed || lightboxActive) return;
-
-        const rect = wrapper.getBoundingClientRect();
-        const normX = (e.clientX - rect.left) / rect.width;   // 0–1
-        const normY = (e.clientY - rect.top) / rect.height;    // 0–1
-
-        cardItem.hoverRotateX = (normY - 0.5) * TILT_MAX_DEG * 2;
-        cardItem.hoverRotateY = -(normX - 0.5) * TILT_MAX_DEG * 2;
-        cardItem.hoverScale = 1.1;
-        cardItem.isHovered = true;
-
-        // Activar glow SOLO en esta tarjeta
-        glow.classList.add('active');
-
-        // Mover glow ligeramente desfasado
-        const glowDx = (normX - 0.5) * 20;
-        const glowDy = (normY - 0.5) * 24;
-        glow.style.transform = `translate(${glowDx}px, ${glowDy}px)`;
-
-        // Actualizar fondo ambiental
-        setAmbientBackground(imageData.thumbnailSrc);
-      });
-
-      wrapper.addEventListener('mouseleave', () => {
-        cardItem.hoverRotateX = 0;
-        cardItem.hoverRotateY = 0;
-        cardItem.hoverScale = 1.0;
-        cardItem.isHovered = false;
-
-        glow.classList.remove('active');
-        glow.style.transform = '';
-      });
-
-      // ── Click → Lightbox (Fase 10) ──
-      card.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openLightbox(cardItem);
-      });
-    }
-
-    // =============================================
-    // FASE 6 — CÁMARA + NAVEGACIÓN
-    // =============================================
-
+    // ── Teclado y Control de Vuelo ──
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Control') {
         isCtrlPressed = true;
         ctrlIndicator.classList.add('visible');
-        document.body.style.cursor = 'grab';
+        document.body.style.cursor = 'crosshair';
       }
     });
 
@@ -691,13 +554,18 @@
       if (e.key === 'Control') {
         isCtrlPressed = false;
         ctrlIndicator.classList.remove('visible');
-        document.body.style.cursor = '';
+        document.body.style.cursor = 'default';
 
-        // Transferir la velocidad de paneo a inercia
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        camera.velocityX = ((mouseX - centerX) / centerX) * PAN_SPEED * 0.35;
-        camera.velocityY = ((mouseY - centerY) / centerY) * PAN_SPEED * 0.35;
+        // Conservar inercia al soltar
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        const ndx = (mouseX - cx) / cx;
+        const ndy = (mouseY - cy) / cy;
+        const dist = Math.hypot(ndx, ndy);
+        const speed = BASE_SPEED * Math.pow(dist, ACCEL_POWER);
+
+        camera.vx = ndx * speed * 0.45;
+        camera.vy = ndy * speed * 0.45;
       }
     });
 
@@ -706,211 +574,186 @@
       mouseY = e.clientY;
     });
 
+    // ── Actualización de Cámara con Alta Aceleración ──
     function updateCamera() {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-
-      if (isCtrlPressed) {
-        // Vector normalizado [-1, 1] del centro al cursor
-        const dx = (mouseX - centerX) / centerX;
-        const dy = (mouseY - centerY) / centerY;
-
-        camera.targetX += dx * PAN_SPEED;
-        camera.targetY += dy * PAN_SPEED;
-        camera.velocityX = dx * PAN_SPEED;
-        camera.velocityY = dy * PAN_SPEED;
-      } else {
-        // Inercia: desacelerar progresivamente
-        camera.velocityX *= INERTIA_DECAY;
-        camera.velocityY *= INERTIA_DECAY;
-
-        // Cortar la inercia si es insignificante
-        if (Math.abs(camera.velocityX) < 0.01) camera.velocityX = 0;
-        if (Math.abs(camera.velocityY) < 0.01) camera.velocityY = 0;
-
-        camera.targetX += camera.velocityX;
-        camera.targetY += camera.velocityY;
-      }
-
-      // Interpolación suave hacia el objetivo
-      camera.x += (camera.targetX - camera.x) * LERP_FACTOR;
-      camera.y += (camera.targetY - camera.y) * LERP_FACTOR;
-    }
-
-    // =============================================
-    // FASE 7 — RENDERIZADO 3D + FISHEYE
-    // =============================================
-
-    /**
-     * Wrapping toroidal: las posiciones se envuelven para crear el efecto infinito.
-     */
-    function wrapValue(val, size) {
-      const half = size / 2;
-      return ((val + half) % size + size) % size - half;
-    }
-
-    function renderCards() {
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
-      const maxDist = Math.hypot(cx, cy);
 
-      for (let i = 0; i < cardDataList.length; i++) {
-        const card = cardDataList[i];
+      if (isCtrlPressed) {
+        // Vector normalizado desde el centro [-1, 1]
+        const ndx = (mouseX - cx) / cx;
+        const ndy = (mouseY - cy) / cy;
+        const dist = Math.min(Math.hypot(ndx, ndy), 1.5);
 
-        // 1. Posición visual con wrapping infinito
-        const visualX = wrapValue(card.baseX - camera.x, worldWidth);
-        const visualY = wrapValue(card.baseY - camera.y, worldHeight);
+        // Aceleración no lineal: en las esquinas se dispara la velocidad
+        const speed = BASE_SPEED * (1 + Math.pow(dist, ACCEL_POWER) * 2.2);
 
-        // 2. Posición en pantalla (desde el centro del viewport)
-        const screenX = cx + visualX - card.halfW;
-        const screenY = cy + visualY - card.halfH;
+        camera.targetX += ndx * speed;
+        camera.targetY += ndy * speed;
+        camera.vx = ndx * speed;
+        camera.vy = ndy * speed;
+      } else {
+        // Inercia suave y desaceleración
+        camera.vx *= INERTIA_FRICTION;
+        camera.vy *= INERTIA_FRICTION;
+        if (Math.abs(camera.vx) < 0.05) camera.vx = 0;
+        if (Math.abs(camera.vy) < 0.05) camera.vy = 0;
 
-        // 3. Distancia al centro (normalizada 0–1)
-        const dist = Math.hypot(visualX, visualY);
-        const normDist = Math.min(dist / maxDist, 1.0);
+        camera.targetX += camera.vx;
+        camera.targetY += camera.vy;
+      }
 
-        // 4. Fisheye Z: hundimiento cuadrático
-        const fisheyeZ = -(normDist * normDist) * FISHEYE_DEPTH;
+      // Suavizado lerp
+      camera.x += (camera.targetX - camera.x) * LERP_SMOOTH;
+      camera.y += (camera.targetY - camera.y) * LERP_SMOOTH;
+    }
 
-        // 5. Escala: las del centro son mayores
-        const fisheyeScale = 1.0 - normDist * 0.22;
+    // ── Renderizado Infinito (Virtual Tiling + Fisheye 3D) ──
+    function renderInfiniteGallery() {
+      if (userImages.length === 0) return;
 
-        // 6. Rotación mirando hacia el centro (inclinación periférica)
-        const angle = Math.atan2(visualY, visualX);
-        const tiltAmount = normDist * 10;
-        let fisheyeRotX = Math.sin(angle) * tiltAmount;
-        let fisheyeRotY = -Math.cos(angle) * tiltAmount;
+      const winW = window.innerWidth;
+      const winH = window.innerHeight;
+      const cx = winW / 2;
+      const cy = winH / 2;
+      const maxScreenDist = Math.hypot(cx, cy);
 
-        // 7. Opacidad: leve reducción en bordes
-        const opacity = 1.0 - normDist * 0.35;
+      // Calcular rango de columnas y filas visibles alrededor de la cámara
+      const margin = 280;
+      const minScreenX = -margin;
+      const maxScreenX = winW + margin;
+      const minScreenY = -margin;
+      const maxScreenY = winH + margin;
 
-        // 8. Componer con hover (si la tarjeta está hovereada)
-        let finalRotX = fisheyeRotX;
-        let finalRotY = fisheyeRotY;
-        let finalScale = fisheyeScale;
+      const minRow = Math.floor((camera.y + minScreenY - cy) / STEP_Y) - 1;
+      const maxRow = Math.ceil((camera.y + maxScreenY - cy) / STEP_Y) + 1;
 
-        if (card.isHovered) {
-          finalRotX = card.hoverRotateX;
-          finalRotY = card.hoverRotateY;
-          finalScale = fisheyeScale * card.hoverScale;
+      let poolIndex = 0;
+
+      for (let r = minRow; r <= maxRow; r++) {
+        // Desplazamiento alternado por fila (staggered masonry) para que nunca se vea rígido
+        const rowOffsetX = (Math.abs(r) % 2 !== 0) ? (STEP_X * 0.5) : 0;
+        const worldY = r * STEP_Y;
+        const screenY = worldY - camera.y + cy - (CARD_H / 2);
+
+        const minCol = Math.floor((camera.x + minScreenX - cx - rowOffsetX) / STEP_X) - 1;
+        const maxCol = Math.ceil((camera.x + maxScreenX - cx - rowOffsetX) / STEP_X) + 1;
+
+        for (let c = minCol; c <= maxCol; c++) {
+          if (poolIndex >= MAX_POOL_SIZE) break;
+
+          const worldX = c * STEP_X + rowOffsetX;
+          const screenX = worldX - camera.x + cx - (CARD_W / 2);
+
+          // Verificar si cae dentro del área visible + buffer
+          if (screenX + CARD_W < minScreenX || screenX > maxScreenX) continue;
+          if (screenY + CARD_H < minScreenY || screenY > maxScreenY) continue;
+
+          // Tarjeta disponible en el pool
+          const cardItem = cardPool[poolIndex];
+          poolIndex++;
+
+          // Determinar qué imagen le corresponde en el patrón infinito
+          const imgIdx = getImageIndex(c, r, userImages.length);
+          if (cardItem.imageIndex !== imgIdx) {
+            cardItem.imageIndex = imgIdx;
+            cardItem.img.src = userImages[imgIdx].thumb;
+          }
+
+          // Distancia de la tarjeta al centro de la pantalla
+          const cardCenterX = screenX + CARD_W / 2;
+          const cardCenterY = screenY + CARD_H / 2;
+          const deltaX = cardCenterX - cx;
+          const deltaY = cardCenterY - cy;
+          const dist = Math.hypot(deltaX, deltaY);
+          const normDist = Math.min(dist / maxScreenDist, 1.2);
+
+          // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
+          // 1. Hundimiento cuadrático en Z hacia las esquinas
+          const fisheyeZ = -Math.pow(normDist, 1.8) * MAX_SINK_Z;
+
+          // 2. Curvatura esférica: rotar hacia el centro
+          const angle = Math.atan2(deltaY, deltaX);
+          const tiltFactor = Math.pow(normDist, 1.2) * MAX_TILT;
+          const rotX = Math.sin(angle) * tiltFactor;
+          const rotY = -Math.cos(angle) * tiltFactor;
+
+          // 3. Escala y opacidad suave en los extremos
+          const scale = Math.max(1.0 - normDist * 0.16, 0.75);
+          const opacity = Math.max(1.0 - Math.pow(normDist, 2.8) * 0.65, 0.15);
+
+          // Aplicar transformaciones 3D aceleradas por GPU
+          cardItem.wrapper.style.display = 'block';
+          cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
+          cardItem.wrapper.style.opacity = opacity;
+
+          // Las tarjetas más cercanas al centro tienen mayor prioridad visual
+          cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.2 - normDist) * 30);
         }
+      }
 
-        // 9. Aplicar transformación combinada
-        card.wrapper.style.transform =
-          `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) ` +
-          `rotateX(${finalRotX}deg) rotateY(${finalRotY}deg) ` +
-          `scale(${finalScale})`;
-        card.wrapper.style.opacity = Math.max(opacity, 0.15);
-
-        // Z-index: las más cercanas al centro tienen mayor prioridad
-        card.wrapper.style.zIndex = card.isHovered ? 50 : Math.round((1 - normDist) * 10);
+      // Ocultar tarjetas no usadas del pool
+      for (let i = poolIndex; i < MAX_POOL_SIZE; i++) {
+        cardPool[i].wrapper.style.display = 'none';
       }
     }
 
-    // =============================================
-    // FASE 8 — BUCLE DE RENDERIZADO (RAF)
-    // =============================================
-
-    function renderLoop() {
+    // ── Bucle Principal (RAF) ──
+    function mainLoop() {
       updateCamera();
-      renderCards();
-      rafId = requestAnimationFrame(renderLoop);
+      renderInfiniteGallery();
+      rafId = requestAnimationFrame(mainLoop);
     }
 
-    function startRenderLoop() {
-      if (rafId) return; // Ya corriendo
-      rafId = requestAnimationFrame(renderLoop);
+    function startLoop() {
+      if (!rafId) rafId = requestAnimationFrame(mainLoop);
     }
 
-    function stopRenderLoop() {
+    function stopLoop() {
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
     }
 
-    // =============================================
-    // FASE 10 — LIGHTBOX
-    // =============================================
-
-    function openLightbox(cardItem) {
+    // ── Lightbox Zoom-In ──
+    function openLightbox(imgData) {
       lightboxActive = true;
-      lightboxImg.src = cardItem.fullSrc;
-      lightboxGlow.src = cardItem.thumbnailSrc;
+      lightboxImg.src = imgData.fullSrc;
+      lightboxGlow.src = imgData.thumb;
       lightbox.classList.add('active');
-      stopRenderLoop();
+      stopLoop();
     }
 
     function closeLightbox() {
       lightbox.classList.remove('active');
       lightboxActive = false;
-
       setTimeout(() => {
-        lightboxImg.style.transform = '';
-        lightboxGlow.style.transform = 'translate3d(0, 0, -35px)';
-      }, 350);
-
-      startRenderLoop();
+        lightboxImg.style.transform = 'translate3d(0, 0, 0)';
+      }, 300);
+      startLoop();
     }
 
-    // Efecto 3D en la imagen ampliada
     lightbox.addEventListener('mousemove', (e) => {
       if (!lightboxActive) return;
-
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const dx = (e.clientX - cx) / cx;
       const dy = (e.clientY - cy) / cy;
 
-      const maxTilt = 12;
-      const rotX = dy * maxTilt;
-      const rotY = -dx * maxTilt;
-
+      const rotX = dy * 12;
+      const rotY = -dx * 12;
       lightboxImg.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-
-      const glowTx = dx * 35;
-      const glowTy = dy * 35;
-      lightboxGlow.style.transform =
-        `translate3d(${glowTx}px, ${glowTy}px, -40px) ` +
-        `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.04)`;
+      lightboxGlow.style.transform = `translate3d(${dx * 30}px, ${dy * 30}px, -25px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
     });
 
-    lightbox.addEventListener('mouseleave', () => {
-      lightboxImg.style.transform = '';
-      lightboxGlow.style.transform = 'translate3d(0, 0, -35px)';
-    });
+    lightbox.addEventListener('click', closeLightbox);
 
-    lightbox.addEventListener('click', () => {
-      closeLightbox();
-    });
-
-    // Cerrar con Escape
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && lightboxActive) {
-        closeLightbox();
-      }
+      if (e.key === 'Escape' && lightboxActive) closeLightbox();
     });
 
-    // =============================================
-    // FASE 11 — FONDO AMBIENTAL OPTIMIZADO
-    // =============================================
-
-    function setAmbientBackground(src) {
-      if (currentAmbientSrc === src) return;
-      currentAmbientSrc = src;
-
-      ambientBg.style.opacity = '0';
-      setTimeout(() => {
-        ambientBg.src = src;
-        ambientBg.style.opacity = '0.5';
-      }, 250);
-    }
-
-    // =============================================
-    // FASE 12 — CARGA DE ARCHIVOS + FLUJO
-    // =============================================
-
-    // Doble clic en cualquier zona vacía para cargar imágenes
+    // ── Carga de archivos por Doble Clic ──
     document.addEventListener('dblclick', (e) => {
       if (lightboxActive) return;
       if (e.target.closest('.card-wrapper')) return;
@@ -922,45 +765,27 @@
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
 
-      // Ocultar empty state, mostrar galería
       emptyState.style.display = 'none';
-
-      // Procesar todas las imágenes en paralelo
-      const promises = files.map(f => optimizeImage(f));
+      navHint.style.display = 'block';
 
       try {
-        const results = await Promise.all(promises);
+        const processed = await Promise.all(files.map(f => optimizeImage(f)));
+        userImages.push(...processed);
 
-        results.forEach(imageData => {
-          addCard(imageData);
-        });
+        // Centrar cámara en el origen
+        camera.x = 0;
+        camera.y = 0;
+        camera.targetX = 0;
+        camera.targetY = 0;
+        camera.vx = 0;
+        camera.vy = 0;
 
-        // Recalcular disposición con las nuevas tarjetas
-        recalculateLayout();
-
-        // Mostrar hint de navegación
-        navHint.classList.add('visible');
-
-        // Iniciar renderizado si no está corriendo
-        startRenderLoop();
-
-        // Establecer primer fondo ambiental
-        if (cardDataList.length > 0 && !currentAmbientSrc) {
-          setAmbientBackground(cardDataList[0].thumbnailSrc);
-        }
+        startLoop();
       } catch (err) {
-        console.error('Error procesando imágenes:', err);
+        console.error('Error cargando imágenes:', err);
       }
 
-      // Resetear input para permitir recargar los mismos archivos
       fileInput.value = '';
-    });
-
-    // Recalcular al redimensionar ventana
-    window.addEventListener('resize', () => {
-      if (cardDataList.length > 0) {
-        recalculateLayout();
-      }
     });
   </script>
 </body>
