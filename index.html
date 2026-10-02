@@ -90,16 +90,9 @@
       transform-style: preserve-3d;
     }
 
-    /* Halo de luz cálida detrás de la tarjeta en hover */
+    /* En fondo claro las tarjetas usan sombra en hover, el brillo queda reservado para el lightbox oscuro */
     .card-glow {
-      position: absolute;
-      inset: -14px;
-      border-radius: calc(var(--card-radius) + 12px);
-      filter: blur(22px);
-      opacity: 0;
-      z-index: -1;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
+      display: none;
     }
 
     .card {
@@ -110,17 +103,17 @@
       position: relative;
       background: #ffffff;
       border: 1px solid rgba(80, 60, 30, 0.12);
-      box-shadow: 0 10px 28px rgba(60, 45, 20, 0.10), 0 2px 6px rgba(60, 45, 20, 0.05);
+      box-shadow: 0 10px 26px rgba(50, 38, 16, 0.08), 0 2px 6px rgba(50, 38, 16, 0.04);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, filter 0.16s ease-out;
+      transition: border-color 0.22s ease, box-shadow 0.22s ease, filter 0.16s ease-out;
       will-change: filter;
     }
 
     .card:hover {
-      border-color: rgba(60, 45, 20, 0.35);
-      box-shadow: 0 22px 55px rgba(60, 45, 20, 0.20), 0 4px 12px rgba(60, 45, 20, 0.08);
+      border-color: rgba(60, 45, 20, 0.38);
+      box-shadow: 0 30px 65px rgba(45, 32, 12, 0.25), 0 10px 24px rgba(45, 32, 12, 0.12);
     }
 
     .card-img {
@@ -193,14 +186,14 @@
       opacity: 0.70;
     }
 
-    /* Lightbox Modal */
+    /* Lightbox Modal: Fondo oscuro/negro cinematográfico con brillo trasero radiante */
     .lightbox-overlay {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(18, 16, 12, 0.70);
-      backdrop-filter: blur(20px);
+      background: rgba(8, 8, 12, 0.90);
+      backdrop-filter: blur(24px);
       z-index: 100;
       display: flex;
       justify-content: center;
@@ -238,9 +231,9 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      filter: blur(65px) saturate(2.2) brightness(1.2);
+      filter: blur(75px) saturate(2.6) brightness(1.35);
       z-index: 0;
-      opacity: 0.75;
+      opacity: 0.90;
       pointer-events: none;
       transform: translate3d(0, 0, -25px);
     }
@@ -315,21 +308,19 @@
     let lightboxActive = false;
 
     // Dimensiones de tarjetas base
-    const CARD_W = 230;
-    const CARD_H = 320;
+    const CARD_W = 224;
+    const CARD_H = 312;
 
-    // ── Disposición Estilo Moodboard / Pinterest (Desplazamientos Alternados) ──
-    // Las columnas se desfasan verticalmente para que nunca coincidan en una fila recta.
-    // Separación horizontal generosa para que las tarjetas NUNCA se toquen ni se monten.
-    const STEP_X = 310;
-    const STEP_Y = 380;
+    // ── Disposición Estilo Moodboard / Pinterest (Gap Ajustado y Cohesivo) ──
+    // Separación horizontal (252px) y vertical (348px) para un gap limpio de ~18-20px
+    const STEP_X = 252;
+    const STEP_Y = 348;
 
     // Desplazamiento vertical por columna (stagger) para romper cualquier alineación horizontal
     function getColumnStaggerY(col) {
       const c = col;
       if (c === 0) return 0; // Columna central tiene la imagen principal en Y = 0
-      // Alternar desfasajes elegantes (+90px, -80px, +60px, -70px...)
-      const pattern = [0, 95, -85, 60, -75, 105, -60];
+      const pattern = [0, 36, -30, 26, -32, 38, -26];
       const idx = ((Math.abs(c) % pattern.length) + pattern.length) % pattern.length;
       return pattern[idx] * (c < 0 ? -1 : 1);
     }
@@ -412,18 +403,19 @@
           // Al hacer hover, se asegura máxima nitidez
           card.style.filter = 'none';
 
-          // Resplandor cálido
-          glow.style.opacity = '1';
-          glow.style.background = `radial-gradient(circle at ${normX * 100}% ${normY * 100}%, rgba(240, 190, 100, 0.55) 0%, rgba(200, 150, 70, 0.2) 50%, transparent 75%)`;
+          // Elevación 3D y sombra profunda en hover sobre el fondo claro crema (sin brillo luminoso)
           inner.style.transform = `translateZ(45px) scale(1.05) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
+          card.style.boxShadow = '0 32px 70px rgba(45, 32, 12, 0.26), 0 10px 24px rgba(45, 32, 12, 0.12)';
+          card.style.borderColor = 'rgba(60, 45, 20, 0.38)';
         });
 
         wrapper.addEventListener('mouseleave', () => {
           cardItem.hovered = false;
           cardItem.hoverRotX = 0;
           cardItem.hoverRotY = 0;
-          glow.style.opacity = '0';
           inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
+          card.style.boxShadow = '';
+          card.style.borderColor = '';
         });
 
         wrapper.addEventListener('click', (e) => {
@@ -638,7 +630,7 @@
       const maxScreenDist = Math.hypot(cx, cy);
 
       // Calcular columnas visibles alrededor de la cámara
-      const buffer = 420;
+      const buffer = 520;
       const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
       const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
 
@@ -686,12 +678,22 @@
           const dist = Math.hypot(deltaX, deltaY);
           const normDist = Math.min(dist / maxScreenDist, 1.25);
 
-          // ── ESCALA DINÁMICA: LA IMAGEN DEL CENTRO ES MÁS GRANDE ──
-          // Centro exacto: ~1.28x (grande, destacada, nítida)
-          // Alrededor: ~0.94x a 0.98x (ligeramente más pequeñas, NO diminutas)
-          // Periferia: ~0.84x
-          const centerProminence = Math.max(0, 1.0 - Math.pow(normDist, 1.35));
-          const dynamicScale = 0.84 + centerProminence * 0.44; // 1.28 en centro -> 0.84 en extremos
+          // ── ESCALA DINÁMICA PROTAGÓNICA: LA IMAGEN CENTRAL ES NOTABLEMENTE MÁS GRANDE ──
+          // Radio de enfoque local (~250px): la imagen en el centro se expande a 1.28x.
+          // Las imágenes de alrededor quedan en 0.94x (claramente más pequeñas, proporcionadas y cohesivas).
+          const focusRadius = 250;
+          const proximity = Math.max(0, 1.0 - Math.min(dist / focusRadius, 1.0));
+          const centerBoost = Math.pow(proximity, 1.4);
+          const dynamicScale = 0.94 + centerBoost * 0.34; // 1.28x en el centro -> 0.94x alrededor
+
+          // Desplazamiento orgánico suave hacia afuera para dar paso al elemento central sin colisionar
+          let finalScreenX = screenX;
+          let finalScreenY = screenY;
+          if (dist > 35 && dist < 480) {
+            const pushFactor = Math.pow(Math.max(0, 1.0 - dist / 480), 1.25);
+            finalScreenX += (deltaX / dist) * pushFactor * 36;
+            finalScreenY += (deltaY / dist) * pushFactor * 42;
+          }
 
           // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
           // 1. Hundimiento suave en Z hacia los bordes
@@ -709,18 +711,18 @@
           // 4. DESENFOQUE ÓPTICO EN BORDES (SIN OSCURIDAD / FONDO CLARO)
           if (!cardItem.hovered) {
             let blurPx = 0;
-            if (normDist > 0.45) {
-              blurPx = Math.pow((normDist - 0.45) / 0.55, 1.35) * 11;
+            if (normDist > 0.48) {
+              blurPx = Math.pow((normDist - 0.48) / 0.52, 1.35) * 11;
             }
             cardItem.card.style.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
           }
 
           // Aplicar transformaciones 3D aceleradas
           cardItem.wrapper.style.display = 'block';
-          cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${dynamicScale})`;
+          cardItem.wrapper.style.transform = `translate3d(${finalScreenX}px, ${finalScreenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${dynamicScale})`;
 
-          // La tarjeta más cercana al centro tiene mayor z-index y queda al frente
-          cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.3 - normDist) * 35);
+          // La tarjeta en el centro tiene prioridad absoluta visual y queda al frente
+          cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round(10 + centerBoost * 70);
         }
       }
 
