@@ -232,9 +232,10 @@
       object-fit: contain;
       filter: blur(75px) saturate(2.6) brightness(1.35);
       z-index: 0;
-      opacity: 0.90;
+      opacity: 0;
       pointer-events: none;
       transform: translate3d(0, 0, -25px);
+      transition: opacity 0.22s ease-out;
     }
 
     .lightbox-img {
@@ -246,7 +247,8 @@
       position: relative;
       z-index: 1;
       transform: translate3d(0, 0, 0);
-      transition: transform 0.12s ease-out;
+      opacity: 0;
+      transition: transform 0.12s ease-out, opacity 0.22s ease-out;
     }
 
     #file-input {
@@ -824,21 +826,51 @@
       }
     }
 
-    // ── Lightbox Zoom-In ──
+    // ── Lightbox Zoom-In Sin Parpadeo ──
     function openLightbox(imgData) {
+      if (!imgData) return;
       lightboxActive = true;
-      lightboxImg.src = imgData.fullSrc;
-      lightboxGlow.src = imgData.thumb;
-      lightbox.classList.add('active');
       stopLoop();
+
+      // Ocultar cualquier imagen previa inmediatamente
+      lightboxImg.style.opacity = '0';
+      lightboxGlow.style.opacity = '0';
+      lightboxImg.style.transform = 'translate3d(0, 0, 0)';
+      lightboxGlow.style.transform = 'translate3d(0, 0, -25px)';
+
+      // Asignar nuevas imágenes
+      lightboxImg.src = imgData.fullSrc || imgData.thumb;
+      lightboxGlow.src = imgData.thumb;
+
+      const reveal = () => {
+        if (!lightboxActive) return;
+        lightboxImg.style.opacity = '1';
+        lightboxGlow.style.opacity = '0.90';
+        lightbox.classList.add('active');
+      };
+
+      if (lightboxImg.decode) {
+        lightboxImg.decode().then(reveal).catch(reveal);
+      } else if (lightboxImg.complete) {
+        reveal();
+      } else {
+        lightboxImg.onload = reveal;
+      }
     }
 
     function closeLightbox() {
       lightbox.classList.remove('active');
       lightboxActive = false;
       setTimeout(() => {
-        lightboxImg.style.transform = 'translate3d(0, 0, 0)';
-      }, 300);
+        if (!lightboxActive) {
+          lightboxImg.src = '';
+          lightboxGlow.src = '';
+          lightboxImg.style.opacity = '0';
+          lightboxGlow.style.opacity = '0';
+          lightboxImg.style.transform = 'translate3d(0, 0, 0)';
+          lightboxGlow.style.transform = 'translate3d(0, 0, -25px)';
+        }
+      }, 350);
       startLoop();
     }
 
