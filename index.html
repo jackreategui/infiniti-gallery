@@ -309,109 +309,68 @@
     let mouseY = window.innerHeight / 2;
     let lightboxActive = false;
 
-    // ── Dimensiones Dinámicas y Gap Uniforme (Miro / FigJam) ──
-    const BASE_COL_W = 216;
-    const GAP = 32; // Exactamente 32px de separación tanto en horizontal como en vertical
+    // ── Dimensiones Dinámicas y Separación Amplia (Margen Parejo 64px) ──
+    const BASE_COL_W = 210;
+    const MARGIN = 64; // Separación exacta de 64px arriba, abajo, izquierda y derecha
     const STD_SCALE = 0.92;
     const HERO_SCALE = 1.28;
-    const STD_W = BASE_COL_W * STD_SCALE; // ~198.7px
-    const HERO_W = BASE_COL_W * HERO_SCALE; // ~276.5px
+    const STD_W = BASE_COL_W * STD_SCALE; // ~193.2px (mitad: 96.6px)
+    const HERO_W = BASE_COL_W * HERO_SCALE; // ~268.8px (mitad: 134.4px)
 
-    // Posición X de cada columna para que el gap horizontal sea EXACTAMENTE igual a GAP (32px)
+    // Paso horizontal uniforme entre columnas: (HERO_W/2) + MARGIN + (STD_W/2) = 295px
+    // Garantiza que cualquier tarjeta que esté en el centro tenga exactamente ~64-65px de margen lateral
+    const STEP_X = Math.round((HERO_W / 2) + MARGIN + (STD_W / 2)); // 295px
+
     function getColumnX(c) {
-      if (c === 0) return 0;
-      const firstStep = (HERO_W / 2) + GAP + (STD_W / 2); // 270px
-      const stdStep = STD_W + GAP; // 230.7px
-      if (c > 0) {
-        return firstStep + (c - 1) * stdStep;
-      } else {
-        return -firstStep + (c + 1) * stdStep;
-      }
+      return c * STEP_X;
     }
 
     // Desfasaje vertical asimétrico por columna (Miro / FigJam / Pinterest)
     // CERO filas horizontales: cada columna corre a una altura vertical completamente distinta
     function getColumnOffset(c) {
       if (c === 0) return 0; // Columna central con hero en Y = 0
-      const pattern = [0, -115, 85, -75, 110, -95, 65];
+      const pattern = [0, -125, 95, -85, 120, -100, 75];
       const idx = ((Math.abs(c) % pattern.length) + pattern.length) % pattern.length;
       return pattern[idx] * (c < 0 ? -1 : 1);
     }
 
     // Altura natural según el formato de la imagen (horizontal, cuadrada o vertical)
     function getCardNaturalHeight(imgIdx) {
-      if (imgIdx < 0 || !userImages[imgIdx]) return 300;
+      if (imgIdx < 0 || !userImages[imgIdx]) return 295;
       const img = userImages[imgIdx];
-      const ratio = (img.w && img.h) ? (img.w / img.h) : 0.72;
+      const ratio = (img.w && img.h) ? (img.w / img.h) : 0.71;
       // Horizontal (ratio > 1.2) -> altura reducida (~150-180px)
-      // Cuadrada (0.85-1.2) -> altura cuadrada (~216px)
-      // Vertical (ratio < 0.85) -> altura póster (~300-312px)
-      return Math.round(Math.max(150, Math.min(312, BASE_COL_W / ratio)));
+      // Cuadrada (0.85-1.2) -> altura cuadrada (~210px)
+      // Vertical (ratio < 0.85) -> altura póster (~295-310px)
+      return Math.round(Math.max(150, Math.min(310, BASE_COL_W / ratio)));
     }
 
-    // Altura visual proyectada de una tarjeta
-    function getCardVisualHeight(c, r, count) {
-      const imgIdx = getMoodboardImageIndex(c, r, count);
-      const natH = getCardNaturalHeight(imgIdx);
-      const isHero = (c === 0 && r === 0);
-      const scale = isHero ? HERO_SCALE : STD_SCALE;
-      return natH * scale;
+    // Paso vertical entre tarjetas consecutivas de la columna c entre r y r+1
+    // Considera la escala para que el margen libre entre bordes sea SIEMPRE de 64px
+    function getVerticalStep(c, r, count) {
+      const idxCurr = getMoodboardImageIndex(c, r, count);
+      const idxNext = getMoodboardImageIndex(c, r + 1, count);
+      const hCurr = getCardNaturalHeight(idxCurr);
+      const hNext = getCardNaturalHeight(idxNext);
+      const halfVisualCurr = (hCurr * HERO_SCALE) / 2;
+      const halfVisualNext = (hNext * STD_SCALE) / 2;
+      return Math.round(halfVisualCurr + MARGIN + halfVisualNext);
     }
 
     // Posición del centro (worldX, worldY) de cada tarjeta
-    // Garantiza que entre tarjeta y tarjeta haya EXACTAMENTE GAP (32px) en horizontal y vertical
+    // Garantiza que entre tarjeta y tarjeta haya EXACTAMENTE un margen de 64px en vertical y horizontal
     function getCardWorldPos(c, r, count) {
       const worldX = getColumnX(c);
-      let worldY = 0;
+      const colOff = getColumnOffset(c);
+      let worldY = colOff;
 
-      if (c === 0) {
-        if (r === 0) {
-          worldY = 0;
-        } else if (r > 0) {
-          let currentY = getCardVisualHeight(0, 0, count) / 2;
-          for (let i = 1; i <= r; i++) {
-            const hPrev = i === 1 ? 0 : getCardVisualHeight(0, i - 1, count);
-            const hCurr = getCardVisualHeight(0, i, count);
-            if (i === 1) {
-              currentY += GAP + (hCurr / 2);
-            } else {
-              currentY += (hPrev / 2) + GAP + (hCurr / 2);
-            }
-          }
-          worldY = currentY;
-        } else {
-          let currentY = -(getCardVisualHeight(0, 0, count) / 2);
-          for (let i = -1; i >= r; i--) {
-            const hPrev = i === -1 ? 0 : getCardVisualHeight(0, i + 1, count);
-            const hCurr = getCardVisualHeight(0, i, count);
-            if (i === -1) {
-              currentY -= (GAP + (hCurr / 2));
-            } else {
-              currentY -= ((hPrev / 2) + GAP + (hCurr / 2));
-            }
-          }
-          worldY = currentY;
+      if (r > 0) {
+        for (let i = 0; i < r; i++) {
+          worldY += getVerticalStep(c, i, count);
         }
-      } else {
-        const colOff = getColumnOffset(c);
-        if (r === 0) {
-          worldY = colOff;
-        } else if (r > 0) {
-          let currentY = colOff;
-          for (let i = 1; i <= r; i++) {
-            const hPrev = getCardVisualHeight(c, i - 1, count);
-            const hCurr = getCardVisualHeight(c, i, count);
-            currentY += (hPrev / 2) + GAP + (hCurr / 2);
-          }
-          worldY = currentY;
-        } else {
-          let currentY = colOff;
-          for (let i = -1; i >= r; i--) {
-            const hPrev = getCardVisualHeight(c, i + 1, count);
-            const hCurr = getCardVisualHeight(c, i, count);
-            currentY -= ((hPrev / 2) + GAP + (hCurr / 2));
-          }
-          worldY = currentY;
+      } else if (r < 0) {
+        for (let i = 0; i > r; i--) {
+          worldY -= getVerticalStep(c, i - 1, count);
         }
       }
 
@@ -682,7 +641,7 @@
 
     // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
     function snapToNearestCard() {
-      const approxC = Math.round(camera.targetX / (STD_W + GAP));
+      const approxC = Math.round(camera.targetX / STEP_X);
       let bestX = 0;
       let bestY = 0;
       let minDistance = Infinity;
@@ -714,16 +673,15 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      const buffer = 550;
-      const stdColStep = STD_W + GAP;
-      const minCol = Math.floor((camera.x - cx - buffer) / stdColStep) - 1;
-      const maxCol = Math.ceil((camera.x + cx + buffer) / stdColStep) + 1;
+      const buffer = 600;
+      const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
+      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
 
       let poolIndex = 0;
 
       for (let c = minCol; c <= maxCol; c++) {
-        const minRow = Math.floor((camera.y - cy - buffer) / 320) - 1;
-        const maxRow = Math.ceil((camera.y + cy + buffer) / 320) + 1;
+        const minRow = Math.floor((camera.y - cy - buffer) / 380) - 1;
+        const maxRow = Math.ceil((camera.y + cy + buffer) / 380) + 1;
 
         for (let r = minRow; r <= maxRow; r++) {
           if (poolIndex >= MAX_POOL_SIZE) break;
