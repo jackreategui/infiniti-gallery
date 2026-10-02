@@ -317,21 +317,12 @@
     const STD_W = BASE_COL_W * STD_SCALE; // ~193.2px (mitad: 96.6px)
     const HERO_W = BASE_COL_W * HERO_SCALE; // ~268.8px (mitad: 134.4px)
 
-    // Paso horizontal entre la columna central 0 (hero) y las columnas inmediatas (c = 1 ó -1):
-    // (HERO_W / 2) + MARGIN + (STD_W / 2) = 134.4 + 64 + 96.6 = 295px -> Margen exacto de 64px
-    const STEP_HERO_X = Math.round((HERO_W / 2) + MARGIN + (STD_W / 2)); // 295px
-
-    // Paso horizontal entre columnas estándar (c >= 1 ó c <= -1):
-    // (STD_W / 2) + MARGIN + (STD_W / 2) = STD_W + MARGIN = 193.2 + 64 = 257.2px -> Margen exacto de 64px
-    const STEP_STD_X = Math.round(STD_W + MARGIN); // 257px
+    // Paso horizontal base entre columnas estándar:
+    // STD_W + MARGIN = 193.2 + 64 = 257.2px (~257px) -> Margen base exacto de 64px
+    const STEP_COL_X = Math.round(STD_W + MARGIN); // 257px
 
     function getColumnX(c) {
-      if (c === 0) return 0;
-      if (c > 0) {
-        return STEP_HERO_X + (c - 1) * STEP_STD_X;
-      } else {
-        return -STEP_HERO_X + (c + 1) * STEP_STD_X;
-      }
+      return c * STEP_COL_X;
     }
 
     // Desfasaje vertical asimétrico por columna (Miro / FigJam / Pinterest)
@@ -354,21 +345,16 @@
       return Math.round(Math.max(150, Math.min(310, BASE_COL_W / ratio)));
     }
 
-    // Paso vertical entre tarjetas consecutivas de la columna c entre r y r+1
-    // Considera la escala real de cada tarjeta para que el margen libre entre bordes sea SIEMPRE de 64px
+    // Paso vertical base entre tarjetas consecutivas de la columna c entre r y r+1
+    // Basado en la escala estándar para que el margen libre entre bordes sea SIEMPRE de 64px
     function getVerticalStep(c, r, count) {
       const idxCurr = getMoodboardImageIndex(c, r, count);
       const idxNext = getMoodboardImageIndex(c, r + 1, count);
       const hCurr = getCardNaturalHeight(idxCurr);
       const hNext = getCardNaturalHeight(idxNext);
 
-      // Solo la tarjeta central (c === 0, r === 0) tiene escala HERO_SCALE (1.28)
-      // Todas las demás tarjetas usan su escala estándar STD_SCALE (0.92)
-      const scaleCurr = (c === 0 && r === 0) ? HERO_SCALE : STD_SCALE;
-      const scaleNext = (c === 0 && r + 1 === 0) ? HERO_SCALE : STD_SCALE;
-
-      const halfVisualCurr = (hCurr * scaleCurr) / 2;
-      const halfVisualNext = (hNext * scaleNext) / 2;
+      const halfVisualCurr = (hCurr * STD_SCALE) / 2;
+      const halfVisualNext = (hNext * STD_SCALE) / 2;
       return Math.round(halfVisualCurr + MARGIN + halfVisualNext);
     }
 
@@ -656,14 +642,7 @@
 
     // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
     function snapToNearestCard() {
-      let approxC = 0;
-      if (Math.abs(camera.targetX) <= STEP_HERO_X * 0.6) {
-        approxC = 0;
-      } else if (camera.targetX > 0) {
-        approxC = 1 + Math.round((camera.targetX - STEP_HERO_X) / STEP_STD_X);
-      } else {
-        approxC = -1 + Math.round((camera.targetX + STEP_HERO_X) / STEP_STD_X);
-      }
+      const approxC = Math.round(camera.targetX / STEP_COL_X);
       let bestX = 0;
       let bestY = 0;
       let minDistance = Infinity;
@@ -685,7 +664,7 @@
       camera.targetY += (bestY - camera.targetY) * AUTO_SNAP_SPEED;
     }
 
-    // ── Renderizado Infinito Masonry Asimétrico + Centro Ampliado ──
+    // ── Renderizado Infinito Masonry Asimétrico + Centro Ampliado Dinámico ──
     function renderInfiniteGallery() {
       if (userImages.length === 0) return;
 
@@ -696,8 +675,29 @@
       const maxScreenDist = Math.hypot(cx, cy);
 
       const buffer = 700;
-      const minCol = Math.floor((camera.x - cx - buffer) / STEP_STD_X) - 2;
-      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_STD_X) + 2;
+      const minCol = Math.floor((camera.x - cx - buffer) / STEP_COL_X) - 2;
+      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_COL_X) + 2;
+
+      // Identificar la tarjeta protagonista más cercana al centro de la cámara
+      let centerImgIdx = 0;
+      const approxC = Math.round(camera.x / STEP_COL_X);
+      let minD = Infinity;
+      for (let dc = -1; dc <= 1; dc++) {
+        const c = approxC + dc;
+        for (let r = -2; r <= 2; r++) {
+          const pos = getCardWorldPos(c, r, userImages.length);
+          const d = Math.hypot(camera.x - pos.worldX, camera.y - pos.worldY);
+          if (d < minD) {
+            minD = d;
+            centerImgIdx = getMoodboardImageIndex(c, r, userImages.length);
+          }
+        }
+      }
+
+      const centerNaturalH = getCardNaturalHeight(centerImgIdx);
+      // Expansión que produce la imagen protagonista en el centro
+      const extraX = (BASE_COL_W * (HERO_SCALE - STD_SCALE)) / 2; // ~37.8px
+      const extraY = (centerNaturalH * (HERO_SCALE - STD_SCALE)) / 2; // ~28px a 54px según ratio
 
       let poolIndex = 0;
 
@@ -713,8 +713,21 @@
           const cardH = getCardNaturalHeight(imgIdx);
 
           const pos = getCardWorldPos(c, r, userImages.length);
-          const worldX = pos.worldX;
-          const worldY = pos.worldY;
+
+          // ── EXPANSIÓN DINÁMICA DEL LENTE (EFECTO LUPA / REPULSIÓN CONTINUA) ──
+          // Preserva los 64px de margen exactos para CUALQUIER imagen que pase por el centro
+          const diffX = pos.worldX - camera.x;
+          const diffY = pos.worldY - camera.y;
+
+          // Empuje horizontal continuo suave hacia izquierda o derecha
+          const pushX = extraX * Math.tanh(diffX / 80);
+
+          // Empuje vertical suave: solo afecta a las tarjetas en la columna de la protagonista
+          const colInfluence = Math.max(0, 1.0 - Math.min(Math.abs(diffX) / (STEP_COL_X * 0.7), 1.0));
+          const pushY = (extraY * Math.tanh(diffY / 100)) * colInfluence;
+
+          const worldX = pos.worldX + pushX;
+          const worldY = pos.worldY + pushY;
 
           // Proyección en pantalla
           const screenX = worldX - camera.x + cx - (cardW / 2);
