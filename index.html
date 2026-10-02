@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galería Infinita 3D</title>
+  <meta name="description" content="Galería interactiva 3D infinita con efecto ojo de pez y navegación inmersiva">
+  <style>
+    /* ========================================
+       FASE 2 — SISTEMA CSS
+       ======================================== */
+
+    :root {
+      --perspective: 1200px;
+      --card-radius: 14px;
+      --card-gap: 28px;
+      --fisheye-depth: 350;
+      --fisheye-radius: 42vmin;
+      --tilt-max: 18;
+      --transition-smooth: 0.12s ease-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #07080b;
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      user-select: none;
+      position: relative;
+      cursor: default;
+    }
+
+    /* --- Fondo base degradado --- */
+    .base-bg {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, #0a0c10 0%, #081021 50%, #05070c 100%);
+      z-index: 0;
+    }
+
+    /* --- Fondo ambiental (1 sola capa optimizada) --- */
+    .ambient-bg {
+      position: fixed;
+      inset: -15%;
+      width: 130%;
+      height: 130%;
+      object-fit: cover;
+      filter: blur(80px) saturate(1.6) brightness(0.6);
+      opacity: 0;
+      transition: opacity 0.6s ease-in-out;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* --- Viewport 3D --- */
+    #galaxy-viewport {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      perspective: var(--perspective);
+      perspective-origin: 50% 50%;
+      z-index: 2;
+    }
+
+    #galaxy-world {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      pointer-events: none;
+    }
+
+    /* --- Viñeta Fisheye (blur perimetral con una sola capa CSS) --- */
+    #fisheye-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse 48% 48% at 50% 50%,
+        transparent 0%,
+        transparent 55%,
+        rgba(8, 12, 20, 0.15) 68%,
+        rgba(8, 12, 20, 0.45) 80%,
+        rgba(8, 12, 20, 0.72) 90%,
+        rgba(8, 12, 20, 0.92) 100%
+      );
+    }
+
+    /* --- Tarjetas --- */
+    .card-wrapper {
+      position: absolute;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+      pointer-events: auto;
+      top: 0;
+      left: 0;
+    }
+
+    .card {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+      transform-style: preserve-3d;
+      transition: box-shadow 0.25s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .card:hover {
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.15);
+    }
+
+    .card-glow {
+      position: absolute;
+      inset: -14px;
+      z-index: 1;
+      border-radius: calc(var(--card-radius) + 6px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+      filter: blur(0px);
+    }
+
+    .card-glow.active {
+      opacity: 0.88;
+      filter: blur(32px) saturate(2.2) brightness(1.15);
+    }
+
+    .card-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* --- Estado Vacío --- */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.75);
+      text-align: center;
+      padding: 40px 52px;
+      border: 2px dashed rgba(255, 255, 255, 0.16);
+      border-radius: 22px;
+      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .empty-state:hover {
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #ffffff;
+      transform: translate(-50%, -52%);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .empty-state svg {
+      width: 52px;
+      height: 52px;
+      fill: currentColor;
+      margin-bottom: 16px;
+      opacity: 0.85;
+    }
+
+    .empty-state h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+
+    .empty-state p {
+      margin-top: 8px;
+      font-size: 0.88rem;
+      opacity: 0.65;
+    }
+
+    /* --- Indicador Ctrl --- */
+    #ctrl-indicator {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 50;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 0.78rem;
+      letter-spacing: 0.6px;
+      padding: 9px 22px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 22px;
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #ctrl-indicator.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* --- Lightbox --- */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(6, 8, 14, 0.45);
+      backdrop-filter: blur(14px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      perspective: 1500px;
+      cursor: zoom-out;
+    }
+
+    .lightbox-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .lightbox-content-wrapper {
+      transform: scale(0.35) translateY(70px);
+      opacity: 0;
+      transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transform-style: preserve-3d;
+      position: relative;
+    }
+
+    .lightbox-overlay.active .lightbox-content-wrapper {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+
+    .lightbox-glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: blur(50px) saturate(2.5) brightness(1.2);
+      z-index: 0;
+      opacity: 0.82;
+      pointer-events: none;
+      transition: transform 0.15s ease-out;
+      transform: translate3d(0, 0, -35px);
+    }
+
+    .lightbox-img {
+      max-width: 88vw;
+      max-height: 85vh;
+      border-radius: 14px;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+      object-fit: contain;
+      transition: transform 0.15s ease-out;
+      transform: translate3d(0, 0, 0);
+      position: relative;
+      z-index: 1;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* --- Hint de navegación inferior --- */
+    #nav-hint {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      z-index: 8;
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 0.72rem;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease 1.5s;
+    }
+
+    #nav-hint.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Input de archivos oculto -->
+  <input type="file" id="file-input" accept="image/jpeg, image/png, image/webp, image/gif, image/avif" multiple>
+
+  <!-- Fondo base degradado -->
+  <div class="base-bg"></div>
+
+  <!-- Fondo ambiental optimizado (1 sola capa) -->
+  <img id="ambient-bg" class="ambient-bg" src="" alt="">
+
+  <!-- Viewport 3D -->
+  <div id="galaxy-viewport">
+    <div id="galaxy-world"></div>
+  </div>
+
+  <!-- Viñeta Fisheye (blur perimetral CSS puro) -->
+  <div id="fisheye-vignette"></div>
+
+  <!-- Indicador Ctrl -->
+  <div id="ctrl-indicator">Ctrl + mover cursor para navegar</div>
+
+  <!-- Hint de navegación -->
+  <div id="nav-hint">Doble clic para agregar más imágenes &nbsp;·&nbsp; Ctrl + cursor para explorar</div>
+
+  <!-- Estado Inicial Vacío -->
+  <div class="empty-state" id="empty-state">
+    <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    <h2>Haz doble clic en la pantalla</h2>
+    <p>para cargar y agregar tus imágenes</p>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox-overlay" id="lightbox">
+    <div class="lightbox-content-wrapper" id="lightbox-wrapper">
+      <img class="lightbox-glow" id="lightbox-glow" src="" alt="">
+      <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    </div>
+  </div>
+
+  <script>
+    /* ========================================
+       FASE 3–12 — MOTOR JS COMPLETO
+       ======================================== */
+
+    // ── Referencias DOM ──
+    const fileInput    = document.getElementById('file-input');
+    const emptyState   = document.getElementById('empty-state');
+    const galaxyWorld  = document.getElementById('galaxy-world');
+    const ambientBg    = document.getElementById('ambient-bg');
+    const lightbox     = document.getElementById('lightbox');
+    const lightboxImg  = document.getElementById('lightbox-img');
+    const lightboxGlow = document.getElementById('lightbox-glow');
+    const ctrlIndicator = document.getElementById('ctrl-indicator');
+    const navHint      = document.getElementById('nav-hint');
+
+    // ── Estado Global ──
+    let cardDataList = [];
+    let rafId = null;
+    let isCtrlPressed = false;
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let currentAmbientSrc = '';
+    let lightboxActive = false;
+
+    // Dimensiones base de tarjeta (se adaptan según cantidad)
+    const BASE_CARD_W = 260;
+    const BASE_CARD_H = 320;
+
+    // Cámara virtual
+    const camera = {
+      x: 0,
+      y: 0,
+      targetX: 0,
+      targetY: 0,
+      velocityX: 0,
+      velocityY: 0
+    };
+
+    // Constantes del efecto fisheye
+    const FISHEYE_DEPTH = 380;
+    const PAN_SPEED = 10;
+    const LERP_FACTOR = 0.075;
+    const INERTIA_DECAY = 0.93;
+    const TILT_MAX_DEG = 18;
+
+    // Tamaño del mundo (se calcula según las imágenes)
+    let worldWidth = 2000;
+    let worldHeight = 2000;
+
+    // =============================================
+    // FASE 3 — CARGA Y OPTIMIZACIÓN DE IMÁGENES
+    // =============================================
+
+    /**
+     * Optimiza una imagen redimensionándola con Canvas.
+     * Retorna una miniatura para la galería y el objectURL original para el lightbox.
+     */
+    function optimizeImage(file) {
+      return new Promise((resolve, reject) => {
+        const fullSrc = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const MAX_THUMB = 800;
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+
+          if (w > MAX_THUMB || h > MAX_THUMB) {
+            const ratio = Math.min(MAX_THUMB / w, MAX_THUMB / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          let thumbnailSrc;
+          try {
+            thumbnailSrc = canvas.toDataURL('image/webp', 0.82);
+          } catch {
+            thumbnailSrc = canvas.toDataURL('image/jpeg', 0.82);
+          }
+
+          resolve({
+            thumbnailSrc,
+            fullSrc,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            thumbWidth: w,
+            thumbHeight: h
+          });
+        };
+        img.onerror = () => reject(new Error('Error cargando imagen'));
+        img.src = fullSrc;
+      });
+    }
+
+    // =============================================
+    // FASE 4 — DISPOSICIÓN ESPACIAL (ANILLOS)
+    // =============================================
+
+    /**
+     * Calcula posiciones (x, y) para N tarjetas en anillos concéntricos centrados.
+     * Siempre centrado, sin importar la cantidad.
+     */
+    function calculatePositions(count, spacing) {
+      const positions = [];
+      if (count === 0) return positions;
+
+      // La primera imagen va al centro absoluto
+      positions.push({ x: 0, y: 0 });
+      if (count === 1) return positions;
+
+      // Casos especiales para pocas imágenes (disposiciones equilibradas)
+      if (count === 2) {
+        positions.length = 0;
+        positions.push({ x: -spacing * 0.55, y: 0 });
+        positions.push({ x:  spacing * 0.55, y: 0 });
+        return positions;
+      }
+
+      if (count === 3) {
+        positions.length = 0;
+        positions.push({ x: 0, y: -spacing * 0.35 });
+        positions.push({ x: -spacing * 0.55, y: spacing * 0.35 });
+        positions.push({ x:  spacing * 0.55, y: spacing * 0.35 });
+        return positions;
+      }
+
+      if (count === 4) {
+        positions.length = 0;
+        const off = spacing * 0.52;
+        positions.push({ x: -off, y: -off });
+        positions.push({ x:  off, y: -off });
+        positions.push({ x: -off, y:  off });
+        positions.push({ x:  off, y:  off });
+        return positions;
+      }
+
+      // Distribución general: 1 centro + anillos concéntricos
+      let placed = 1;
+      let ring = 1;
+
+      while (placed < count) {
+        const radius = ring * spacing;
+        const capacity = ring * 6; // 6 por anillo (hexagonal)
+        const toPlace = Math.min(capacity, count - placed);
+
+        // Offset angular para alternar anillos y evitar alineación monótona
+        const angleOffset = ring % 2 === 0 ? 0 : Math.PI / capacity;
+
+        for (let i = 0; i < toPlace; i++) {
+          const angle = angleOffset + (i / toPlace) * Math.PI * 2 - Math.PI / 2;
+          positions.push({
+            x: Math.cos(angle) * radius,
+            y: Math.sin(angle) * radius
+          });
+          placed++;
+        }
+        ring++;
+      }
+
+      return positions;
+    }
+
+    /**
+     * Recalcula el tamaño del mundo y reasigna posiciones a todas las tarjetas.
+     */
+    function recalculateLayout() {
+      const count = cardDataList.length;
+      if (count === 0) return;
+
+      // Adaptar el tamaño de tarjeta según la cantidad
+      let cardW, cardH;
+      if (count <= 2) {
+        cardW = 300; cardH = 380;
+      } else if (count <= 6) {
+        cardW = 250; cardH = 310;
+      } else if (count <= 12) {
+        cardW = 220; cardH = 280;
+      } else {
+        cardW = 200; cardH = 250;
+      }
+
+      const spacing = Math.max(cardW, cardH) + 32;
+      const positions = calculatePositions(count, spacing);
+
+      // Calcular el tamaño del mundo (bounding box de todas las posiciones + margen)
+      let maxX = 0, maxY = 0;
+      positions.forEach(p => {
+        maxX = Math.max(maxX, Math.abs(p.x));
+        maxY = Math.max(maxY, Math.abs(p.y));
+      });
+      worldWidth = (maxX + spacing) * 2.5;
+      worldHeight = (maxY + spacing) * 2.5;
+      // Mínimo razonable
+      worldWidth = Math.max(worldWidth, window.innerWidth * 2);
+      worldHeight = Math.max(worldHeight, window.innerHeight * 2);
+
+      // Asignar posiciones y tamaños a cada tarjeta
+      cardDataList.forEach((card, i) => {
+        if (i < positions.length) {
+          card.baseX = positions[i].x;
+          card.baseY = positions[i].y;
+        }
+
+        // Ajustar tamaño manteniendo proporción de la imagen
+        const imgRatio = card.thumbWidth / card.thumbHeight;
+        let cW = cardW;
+        let cH = cW / imgRatio;
+        if (cH > cardH) {
+          cH = cardH;
+          cW = cH * imgRatio;
+        }
+
+        card.cardW = cW;
+        card.cardH = cH;
+        card.halfW = cW / 2;
+        card.halfH = cH / 2;
+
+        card.wrapper.style.width = cW + 'px';
+        card.wrapper.style.height = cH + 'px';
+      });
+    }
+
+    // =============================================
+    // FASE 5 — CREAR TARJETAS EN EL DOM
+    // =============================================
+
+    function addCard(imageData) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'card-wrapper';
+
+      const glow = document.createElement('img');
+      glow.className = 'card-glow';
+      glow.src = imageData.thumbnailSrc;
+      glow.alt = '';
+      glow.draggable = false;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const img = document.createElement('img');
+      img.className = 'card-img';
+      img.src = imageData.thumbnailSrc;
+      img.alt = '';
+      img.draggable = false;
+
+      card.appendChild(img);
+      wrapper.appendChild(glow);
+      wrapper.appendChild(card);
+      galaxyWorld.appendChild(wrapper);
+
+      const cardItem = {
+        wrapper,
+        card,
+        glow,
+        img,
+        thumbnailSrc: imageData.thumbnailSrc,
+        fullSrc: imageData.fullSrc,
+        thumbWidth: imageData.thumbWidth,
+        thumbHeight: imageData.thumbHeight,
+        baseX: 0,
+        baseY: 0,
+        cardW: BASE_CARD_W,
+        cardH: BASE_CARD_H,
+        halfW: BASE_CARD_W / 2,
+        halfH: BASE_CARD_H / 2,
+        // Estado de hover (se compone sobre la transformación base en el RAF)
+        hoverRotateX: 0,
+        hoverRotateY: 0,
+        hoverScale: 1.0,
+        isHovered: false
+      };
+
+      cardDataList.push(cardItem);
+
+      // ── Hover 3D + Glow selectivo (Fase 9) ──
+      wrapper.addEventListener('mousemove', (e) => {
+        if (isCtrlPressed || lightboxActive) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        const normX = (e.clientX - rect.left) / rect.width;   // 0–1
+        const normY = (e.clientY - rect.top) / rect.height;    // 0–1
+
+        cardItem.hoverRotateX = (normY - 0.5) * TILT_MAX_DEG * 2;
+        cardItem.hoverRotateY = -(normX - 0.5) * TILT_MAX_DEG * 2;
+        cardItem.hoverScale = 1.1;
+        cardItem.isHovered = true;
+
+        // Activar glow SOLO en esta tarjeta
+        glow.classList.add('active');
+
+        // Mover glow ligeramente desfasado
+        const glowDx = (normX - 0.5) * 20;
+        const glowDy = (normY - 0.5) * 24;
+        glow.style.transform = `translate(${glowDx}px, ${glowDy}px)`;
+
+        // Actualizar fondo ambiental
+        setAmbientBackground(imageData.thumbnailSrc);
+      });
+
+      wrapper.addEventListener('mouseleave', () => {
+        cardItem.hoverRotateX = 0;
+        cardItem.hoverRotateY = 0;
+        cardItem.hoverScale = 1.0;
+        cardItem.isHovered = false;
+
+        glow.classList.remove('active');
+        glow.style.transform = '';
+      });
+
+      // ── Click → Lightbox (Fase 10) ──
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openLightbox(cardItem);
+      });
+    }
+
+    // =============================================
+    // FASE 6 — CÁMARA + NAVEGACIÓN
+    // =============================================
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Control') {
+        isCtrlPressed = true;
+        ctrlIndicator.classList.add('visible');
+        document.body.style.cursor = 'grab';
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'Control') {
+        isCtrlPressed = false;
+        ctrlIndicator.classList.remove('visible');
+        document.body.style.cursor = '';
+
+        // Transferir la velocidad de paneo a inercia
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        camera.velocityX = ((mouseX - centerX) / centerX) * PAN_SPEED * 0.35;
+        camera.velocityY = ((mouseY - centerY) / centerY) * PAN_SPEED * 0.35;
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function updateCamera() {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+
+      if (isCtrlPressed) {
+        // Vector normalizado [-1, 1] del centro al cursor
+        const dx = (mouseX - centerX) / centerX;
+        const dy = (mouseY - centerY) / centerY;
+
+        camera.targetX += dx * PAN_SPEED;
+        camera.targetY += dy * PAN_SPEED;
+        camera.velocityX = dx * PAN_SPEED;
+        camera.velocityY = dy * PAN_SPEED;
+      } else {
+        // Inercia: desacelerar progresivamente
+        camera.velocityX *= INERTIA_DECAY;
+        camera.velocityY *= INERTIA_DECAY;
+
+        // Cortar la inercia si es insignificante
+        if (Math.abs(camera.velocityX) < 0.01) camera.velocityX = 0;
+        if (Math.abs(camera.velocityY) < 0.01) camera.velocityY = 0;
+
+        camera.targetX += camera.velocityX;
+        camera.targetY += camera.velocityY;
+      }
+
+      // Interpolación suave hacia el objetivo
+      camera.x += (camera.targetX - camera.x) * LERP_FACTOR;
+      camera.y += (camera.targetY - camera.y) * LERP_FACTOR;
+    }
+
+    // =============================================
+    // FASE 7 — RENDERIZADO 3D + FISHEYE
+    // =============================================
+
+    /**
+     * Wrapping toroidal: las posiciones se envuelven para crear el efecto infinito.
+     */
+    function wrapValue(val, size) {
+      const half = size / 2;
+      return ((val + half) % size + size) % size - half;
+    }
+
+    function renderCards() {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const maxDist = Math.hypot(cx, cy);
+
+      for (let i = 0; i < cardDataList.length; i++) {
+        const card = cardDataList[i];
+
+        // 1. Posición visual con wrapping infinito
+        const visualX = wrapValue(card.baseX - camera.x, worldWidth);
+        const visualY = wrapValue(card.baseY - camera.y, worldHeight);
+
+        // 2. Posición en pantalla (desde el centro del viewport)
+        const screenX = cx + visualX - card.halfW;
+        const screenY = cy + visualY - card.halfH;
+
+        // 3. Distancia al centro (normalizada 0–1)
+        const dist = Math.hypot(visualX, visualY);
+        const normDist = Math.min(dist / maxDist, 1.0);
+
+        // 4. Fisheye Z: hundimiento cuadrático
+        const fisheyeZ = -(normDist * normDist) * FISHEYE_DEPTH;
+
+        // 5. Escala: las del centro son mayores
+        const fisheyeScale = 1.0 - normDist * 0.22;
+
+        // 6. Rotación mirando hacia el centro (inclinación periférica)
+        const angle = Math.atan2(visualY, visualX);
+        const tiltAmount = normDist * 10;
+        let fisheyeRotX = Math.sin(angle) * tiltAmount;
+        let fisheyeRotY = -Math.cos(angle) * tiltAmount;
+
+        // 7. Opacidad: leve reducción en bordes
+        const opacity = 1.0 - normDist * 0.35;
+
+        // 8. Componer con hover (si la tarjeta está hovereada)
+        let finalRotX = fisheyeRotX;
+        let finalRotY = fisheyeRotY;
+        let finalScale = fisheyeScale;
+
+        if (card.isHovered) {
+          finalRotX = card.hoverRotateX;
+          finalRotY = card.hoverRotateY;
+          finalScale = fisheyeScale * card.hoverScale;
+        }
+
+        // 9. Aplicar transformación combinada
+        card.wrapper.style.transform =
+          `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) ` +
+          `rotateX(${finalRotX}deg) rotateY(${finalRotY}deg) ` +
+          `scale(${finalScale})`;
+        card.wrapper.style.opacity = Math.max(opacity, 0.15);
+
+        // Z-index: las más cercanas al centro tienen mayor prioridad
+        card.wrapper.style.zIndex = card.isHovered ? 50 : Math.round((1 - normDist) * 10);
+      }
+    }
+
+    // =============================================
+    // FASE 8 — BUCLE DE RENDERIZADO (RAF)
+    // =============================================
+
+    function renderLoop() {
+      updateCamera();
+      renderCards();
+      rafId = requestAnimationFrame(renderLoop);
+    }
+
+    function startRenderLoop() {
+      if (rafId) return; // Ya corriendo
+      rafId = requestAnimationFrame(renderLoop);
+    }
+
+    function stopRenderLoop() {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    }
+
+    // =============================================
+    // FASE 10 — LIGHTBOX
+    // =============================================
+
+    function openLightbox(cardItem) {
+      lightboxActive = true;
+      lightboxImg.src = cardItem.fullSrc;
+      lightboxGlow.src = cardItem.thumbnailSrc;
+      lightbox.classList.add('active');
+      stopRenderLoop();
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+      lightboxActive = false;
+
+      setTimeout(() => {
+        lightboxImg.style.transform = '';
+        lightboxGlow.style.transform = 'translate3d(0, 0, -35px)';
+      }, 350);
+
+      startRenderLoop();
+    }
+
+    // Efecto 3D en la imagen ampliada
+    lightbox.addEventListener('mousemove', (e) => {
+      if (!lightboxActive) return;
+
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = (e.clientX - cx) / cx;
+      const dy = (e.clientY - cy) / cy;
+
+      const maxTilt = 12;
+      const rotX = dy * maxTilt;
+      const rotY = -dx * maxTilt;
+
+      lightboxImg.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+
+      const glowTx = dx * 35;
+      const glowTy = dy * 35;
+      lightboxGlow.style.transform =
+        `translate3d(${glowTx}px, ${glowTy}px, -40px) ` +
+        `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.04)`;
+    });
+
+    lightbox.addEventListener('mouseleave', () => {
+      lightboxImg.style.transform = '';
+      lightboxGlow.style.transform = 'translate3d(0, 0, -35px)';
+    });
+
+    lightbox.addEventListener('click', () => {
+      closeLightbox();
+    });
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightboxActive) {
+        closeLightbox();
+      }
+    });
+
+    // =============================================
+    // FASE 11 — FONDO AMBIENTAL OPTIMIZADO
+    // =============================================
+
+    function setAmbientBackground(src) {
+      if (currentAmbientSrc === src) return;
+      currentAmbientSrc = src;
+
+      ambientBg.style.opacity = '0';
+      setTimeout(() => {
+        ambientBg.src = src;
+        ambientBg.style.opacity = '0.5';
+      }, 250);
+    }
+
+    // =============================================
+    // FASE 12 — CARGA DE ARCHIVOS + FLUJO
+    // =============================================
+
+    // Doble clic en cualquier zona vacía para cargar imágenes
+    document.addEventListener('dblclick', (e) => {
+      if (lightboxActive) return;
+      if (e.target.closest('.card-wrapper')) return;
+      if (e.target.closest('.lightbox-overlay')) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      // Ocultar empty state, mostrar galería
+      emptyState.style.display = 'none';
+
+      // Procesar todas las imágenes en paralelo
+      const promises = files.map(f => optimizeImage(f));
+
+      try {
+        const results = await Promise.all(promises);
+
+        results.forEach(imageData => {
+          addCard(imageData);
+        });
+
+        // Recalcular disposición con las nuevas tarjetas
+        recalculateLayout();
+
+        // Mostrar hint de navegación
+        navHint.classList.add('visible');
+
+        // Iniciar renderizado si no está corriendo
+        startRenderLoop();
+
+        // Establecer primer fondo ambiental
+        if (cardDataList.length > 0 && !currentAmbientSrc) {
+          setAmbientBackground(cardDataList[0].thumbnailSrc);
+        }
+      } catch (err) {
+        console.error('Error procesando imágenes:', err);
+      }
+
+      // Resetear input para permitir recargar los mismos archivos
+      fileInput.value = '';
+    });
+
+    // Recalcular al redimensionar ventana
+    window.addEventListener('resize', () => {
+      if (cardDataList.length > 0) {
+        recalculateLayout();
+      }
+    });
+  </script>
+</body>
+</html>
