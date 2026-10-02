@@ -142,65 +142,7 @@
       );
     }
 
-    /* HUD de navegación con Ctrl */
-    #ctrl-indicator {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      z-index: 30;
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 500;
-      letter-spacing: 0.6px;
-      padding: 10px 24px;
-      background: rgba(18, 24, 38, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 30px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(50, 120, 255, 0.2);
-      opacity: 0;
-      transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-      pointer-events: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
 
-    #ctrl-indicator.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    .ctrl-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4ade80;
-      box-shadow: 0 0 10px #4ade80;
-      animation: pulseDot 1.2s infinite ease-in-out;
-    }
-
-    @keyframes pulseDot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.4); opacity: 0.6; }
-    }
-
-    /* Pista inferior */
-    #nav-hint {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      color: rgba(255, 255, 255, 0.38);
-      font-size: 0.74rem;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      pointer-events: none;
-      transition: opacity 0.4s ease;
-      white-space: nowrap;
-    }
 
     /* Estado Vacío */
     .empty-state {
@@ -338,14 +280,7 @@
   <!-- Viñeta Ojo de Pez perimetral -->
   <div id="fisheye-vignette"></div>
 
-  <!-- HUD Ctrl activo -->
-  <div id="ctrl-indicator">
-    <span class="ctrl-dot"></span>
-    <span>Modo Vuelo Activo — Mueve el cursor a los bordes para acelerar</span>
-  </div>
 
-  <!-- Hint de navegación inferior -->
-  <div id="nav-hint" style="display: none;">Doble clic para más imágenes &nbsp;·&nbsp; Mantén presionado Ctrl para volar por la galería</div>
 
   <!-- Estado Inicial Vacío -->
   <div class="empty-state" id="empty-state">
@@ -371,8 +306,6 @@
     const lightbox      = document.getElementById('lightbox');
     const lightboxImg   = document.getElementById('lightbox-img');
     const lightboxGlow  = document.getElementById('lightbox-glow');
-    const ctrlIndicator = document.getElementById('ctrl-indicator');
-    const navHint       = document.getElementById('nav-hint');
 
     // ── Catálogo de imágenes cargadas ──
     let userImages = [];
@@ -545,7 +478,6 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Control') {
         isCtrlPressed = true;
-        ctrlIndicator.classList.add('visible');
         document.body.style.cursor = 'crosshair';
       }
     });
@@ -553,7 +485,6 @@
     document.addEventListener('keyup', (e) => {
       if (e.key === 'Control') {
         isCtrlPressed = false;
-        ctrlIndicator.classList.remove('visible');
         document.body.style.cursor = 'default';
 
         // Conservar inercia al soltar
@@ -766,7 +697,6 @@
       if (files.length === 0) return;
 
       emptyState.style.display = 'none';
-      navHint.style.display = 'block';
 
       try {
         const processed = await Promise.all(files.map(f => optimizeImage(f)));
