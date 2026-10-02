@@ -311,18 +311,27 @@
 
     // ── Dimensiones Dinámicas y Separación Amplia (Margen Parejo 64px) ──
     const BASE_COL_W = 210;
-    const MARGIN = 64; // Separación exacta de 64px arriba, abajo, izquierda y derecha
+    const MARGIN = 64; // Margen exacto de 64px por lado (arriba, abajo, izquierda y derecha)
     const STD_SCALE = 0.92;
     const HERO_SCALE = 1.28;
     const STD_W = BASE_COL_W * STD_SCALE; // ~193.2px (mitad: 96.6px)
     const HERO_W = BASE_COL_W * HERO_SCALE; // ~268.8px (mitad: 134.4px)
 
-    // Paso horizontal uniforme entre columnas: (HERO_W/2) + MARGIN + (STD_W/2) = 295px
-    // Garantiza que cualquier tarjeta que esté en el centro tenga exactamente ~64-65px de margen lateral
-    const STEP_X = Math.round((HERO_W / 2) + MARGIN + (STD_W / 2)); // 295px
+    // Paso horizontal entre la columna central 0 (hero) y las columnas inmediatas (c = 1 ó -1):
+    // (HERO_W / 2) + MARGIN + (STD_W / 2) = 134.4 + 64 + 96.6 = 295px -> Margen exacto de 64px
+    const STEP_HERO_X = Math.round((HERO_W / 2) + MARGIN + (STD_W / 2)); // 295px
+
+    // Paso horizontal entre columnas estándar (c >= 1 ó c <= -1):
+    // (STD_W / 2) + MARGIN + (STD_W / 2) = STD_W + MARGIN = 193.2 + 64 = 257.2px -> Margen exacto de 64px
+    const STEP_STD_X = Math.round(STD_W + MARGIN); // 257px
 
     function getColumnX(c) {
-      return c * STEP_X;
+      if (c === 0) return 0;
+      if (c > 0) {
+        return STEP_HERO_X + (c - 1) * STEP_STD_X;
+      } else {
+        return -STEP_HERO_X + (c + 1) * STEP_STD_X;
+      }
     }
 
     // Desfasaje vertical asimétrico por columna (Miro / FigJam / Pinterest)
@@ -346,14 +355,20 @@
     }
 
     // Paso vertical entre tarjetas consecutivas de la columna c entre r y r+1
-    // Considera la escala para que el margen libre entre bordes sea SIEMPRE de 64px
+    // Considera la escala real de cada tarjeta para que el margen libre entre bordes sea SIEMPRE de 64px
     function getVerticalStep(c, r, count) {
       const idxCurr = getMoodboardImageIndex(c, r, count);
       const idxNext = getMoodboardImageIndex(c, r + 1, count);
       const hCurr = getCardNaturalHeight(idxCurr);
       const hNext = getCardNaturalHeight(idxNext);
-      const halfVisualCurr = (hCurr * HERO_SCALE) / 2;
-      const halfVisualNext = (hNext * STD_SCALE) / 2;
+
+      // Solo la tarjeta central (c === 0, r === 0) tiene escala HERO_SCALE (1.28)
+      // Todas las demás tarjetas usan su escala estándar STD_SCALE (0.92)
+      const scaleCurr = (c === 0 && r === 0) ? HERO_SCALE : STD_SCALE;
+      const scaleNext = (c === 0 && r + 1 === 0) ? HERO_SCALE : STD_SCALE;
+
+      const halfVisualCurr = (hCurr * scaleCurr) / 2;
+      const halfVisualNext = (hNext * scaleNext) / 2;
       return Math.round(halfVisualCurr + MARGIN + halfVisualNext);
     }
 
@@ -641,7 +656,14 @@
 
     // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
     function snapToNearestCard() {
-      const approxC = Math.round(camera.targetX / STEP_X);
+      let approxC = 0;
+      if (Math.abs(camera.targetX) <= STEP_HERO_X * 0.6) {
+        approxC = 0;
+      } else if (camera.targetX > 0) {
+        approxC = 1 + Math.round((camera.targetX - STEP_HERO_X) / STEP_STD_X);
+      } else {
+        approxC = -1 + Math.round((camera.targetX + STEP_HERO_X) / STEP_STD_X);
+      }
       let bestX = 0;
       let bestY = 0;
       let minDistance = Infinity;
@@ -673,15 +695,15 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      const buffer = 600;
-      const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
-      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
+      const buffer = 700;
+      const minCol = Math.floor((camera.x - cx - buffer) / STEP_STD_X) - 2;
+      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_STD_X) + 2;
 
       let poolIndex = 0;
 
       for (let c = minCol; c <= maxCol; c++) {
-        const minRow = Math.floor((camera.y - cy - buffer) / 380) - 1;
-        const maxRow = Math.ceil((camera.y + cy + buffer) / 380) + 1;
+        const minRow = Math.floor((camera.y - cy - buffer) / 320) - 2;
+        const maxRow = Math.ceil((camera.y + cy + buffer) / 320) + 2;
 
         for (let r = minRow; r <= maxRow; r++) {
           if (poolIndex >= MAX_POOL_SIZE) break;
