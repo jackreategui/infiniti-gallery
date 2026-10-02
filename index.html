@@ -309,6 +309,7 @@
     let dragStartY = 0;
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
+    let lastHoveredCardPos = null;
     let lightboxActive = false;
 
     // ── Dimensiones Dinámicas y Separación Amplia (Margen Parejo 64px) ──
@@ -444,35 +445,7 @@
           worldY: 0
         };
 
-        // Hover 3D + glow reactivo
-        wrapper.addEventListener('mousemove', (e) => {
-          if (isCtrlPressed || lightboxActive || isDragging) return;
-          const rect = wrapper.getBoundingClientRect();
-          const normX = (e.clientX - rect.left) / rect.width;
-          const normY = (e.clientY - rect.top) / rect.height;
-
-          cardItem.hoverRotX = (normY - 0.5) * 16;
-          cardItem.hoverRotY = -(normX - 0.5) * 16;
-          cardItem.hovered = true;
-
-          // Al hacer hover, se asegura máxima nitidez
-          card.style.filter = 'none';
-
-          // Elevación 3D y sombra profunda en hover sobre el fondo claro crema (sin brillo luminoso)
-          inner.style.transform = `translateZ(45px) scale(1.05) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
-          card.style.boxShadow = '0 32px 70px rgba(45, 32, 12, 0.26), 0 10px 24px rgba(45, 32, 12, 0.12)';
-          card.style.borderColor = 'rgba(60, 45, 20, 0.38)';
-        });
-
-        wrapper.addEventListener('mouseleave', () => {
-          cardItem.hovered = false;
-          cardItem.hoverRotX = 0;
-          cardItem.hoverRotY = 0;
-          inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
-          card.style.boxShadow = '';
-          card.style.borderColor = '';
-        });
-
+        // Clic para abrir Lightbox
         wrapper.addEventListener('click', (e) => {
           e.stopPropagation();
           if (cardItem.imageIndex >= 0 && userImages[cardItem.imageIndex]) {
@@ -549,16 +522,14 @@
         isCtrlPressed = false;
         document.body.style.cursor = 'default';
 
-        // Inercia de salida
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight / 2;
-        const ndx = (mouseX - cx) / cx;
-        const ndy = (mouseY - cy) / cy;
-        const dist = Math.hypot(ndx, ndy);
-        const speed = BASE_SPEED * Math.pow(dist, ACCEL_POWER);
+        // Detener velocidad de salida para centrar directamente la tarjeta sobre la que estás
+        camera.vx = 0;
+        camera.vy = 0;
 
-        camera.vx = ndx * speed * 0.40;
-        camera.vy = ndy * speed * 0.40;
+        if (lastHoveredCardPos) {
+          camera.targetX = lastHoveredCardPos.worldX;
+          camera.targetY = lastHoveredCardPos.worldY;
+        }
       }
     });
 
@@ -630,9 +601,7 @@
         camera.targetX += camera.vx;
         camera.targetY += camera.vy;
 
-        // ── AUTOCENTRADO MAGNÉTICO (Acomodar lentamente en el centro) ──
-        // Si no se está navegando activamente y la velocidad es baja,
-        // la galería se desliza suavemente para fijar la imagen más cercana en el centro exacto.
+        // ── AUTOCENTRADO MAGNÉTICO (Centra la imagen bajo el cursor) ──
         if (userImages.length > 0 && Math.hypot(camera.vx, camera.vy) < 1.8) {
           snapToNearestCard();
         }
@@ -642,18 +611,28 @@
       camera.y += (camera.targetY - camera.y) * LERP_SMOOTH;
     }
 
-    // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
+    // Calcula la tarjeta protagonista a centrar (prioriza la tarjeta bajo el cursor)
     function snapToNearestCard() {
+      // 1. Si el cursor tiene o tuvo una imagen en hover, centrar EXACTAMENTE esa imagen
+      if (lastHoveredCardPos) {
+        camera.targetX += (lastHoveredCardPos.worldX - camera.targetX) * AUTO_SNAP_SPEED;
+        camera.targetY += (lastHoveredCardPos.worldY - camera.targetY) * AUTO_SNAP_SPEED;
+        return;
+      }
+
+      // 2. Si no hay tarjeta en hover, centrar la más cercana a la cámara en X e Y
       const approxC = Math.round(camera.targetX / STEP_COL_X);
-      let bestX = 0;
-      let bestY = 0;
+      const approxR = Math.round(camera.targetY / 320);
+      let bestX = camera.targetX;
+      let bestY = camera.targetY;
       let minDistance = Infinity;
 
       for (let dc = -1; dc <= 1; dc++) {
         const c = approxC + dc;
-        for (let r = -2; r <= 2; r++) {
+        for (let dr = -2; dr <= 2; dr++) {
+          const r = approxR + dr;
           const pos = getCardWorldPos(c, r, userImages.length);
-          const dist = Math.hypot(camera.x - pos.worldX, camera.y - pos.worldY);
+          const dist = Math.hypot(camera.targetX - pos.worldX, camera.targetY - pos.worldY);
           if (dist < minDistance) {
             minDistance = dist;
             bestX = pos.worldX;
@@ -683,10 +662,12 @@
       // Identificar la tarjeta protagonista más cercana al centro de la cámara
       let centerImgIdx = 0;
       const approxC = Math.round(camera.x / STEP_COL_X);
+      const approxR = Math.round(camera.y / 320);
       let minD = Infinity;
       for (let dc = -1; dc <= 1; dc++) {
         const c = approxC + dc;
-        for (let r = -2; r <= 2; r++) {
+        for (let dr = -2; dr <= 2; dr++) {
+          const r = approxR + dr;
           const pos = getCardWorldPos(c, r, userImages.length);
           const d = Math.hypot(camera.x - pos.worldX, camera.y - pos.worldY);
           if (d < minD) {
@@ -784,8 +765,39 @@
           // 3. Cero rotación en Z (100% rectas y verticales como en la referencia)
           // rotZ = 0deg
 
-          // 4. DESENFOQUE ÓPTICO EN BORDES (SIN OSCURIDAD / FONDO CLARO)
-          if (!cardItem.hovered) {
+          // 4. Detección matemática de hover y desenfoque óptico (100% libre de eventos DOM)
+          const isHovered = !isDragging && !lightboxActive &&
+                            mouseX >= screenX && mouseX <= screenX + cardW &&
+                            mouseY >= screenY && mouseY <= screenY + cardH;
+
+          if (isHovered) {
+            lastHoveredCardPos = {
+              worldX: pos.worldX,
+              worldY: pos.worldY,
+              c,
+              r
+            };
+            cardItem.hovered = true;
+
+            const normX = (mouseX - screenX) / cardW;
+            const normY = (mouseY - screenY) / cardH;
+            cardItem.hoverRotX = (normY - 0.5) * 16;
+            cardItem.hoverRotY = -(normX - 0.5) * 16;
+
+            cardItem.card.style.filter = 'none';
+            cardItem.inner.style.transform = `translateZ(45px) scale(1.05) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
+            cardItem.card.style.boxShadow = '0 32px 70px rgba(45, 32, 12, 0.26), 0 10px 24px rgba(45, 32, 12, 0.12)';
+            cardItem.card.style.borderColor = 'rgba(60, 45, 20, 0.38)';
+          } else {
+            if (cardItem.hovered) {
+              cardItem.hovered = false;
+              cardItem.hoverRotX = 0;
+              cardItem.hoverRotY = 0;
+              cardItem.inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
+              cardItem.card.style.boxShadow = '';
+              cardItem.card.style.borderColor = '';
+            }
+
             let blurPx = 0;
             if (normDist > 0.48) {
               blurPx = Math.pow((normDist - 0.48) / 0.52, 1.35) * 11;
@@ -861,6 +873,7 @@
     function closeLightbox() {
       lightbox.classList.remove('active');
       lightboxActive = false;
+      lastHoveredCardPos = null;
       setTimeout(() => {
         if (!lightboxActive) {
           lightboxImg.src = '';
@@ -918,6 +931,7 @@
         camera.targetY = 0;
         camera.vx = 0;
         camera.vy = 0;
+        lastHoveredCardPos = null;
 
         startLoop();
       } catch (err) {
