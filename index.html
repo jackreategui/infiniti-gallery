@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galería Infinita 3D</title>
-  <meta name="description" content="Galería interactiva 3D infinita con constelación abstracta en hexagrama y desenfoque perimetral">
+  <meta name="description" content="Galería interactiva infinita estilo moodboard con autocentrado magnético y fondo crema">
   <style>
     :root {
       --perspective: 1100px;
-      --card-radius: 16px;
-      --card-width: 240px;
-      --card-height: 330px;
+      --card-radius: 12px;
+      --card-width: 230px;
+      --card-height: 320px;
+      --bg-cream: #fefae0;
     }
 
     * {
@@ -23,36 +24,38 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      background: #06070a;
+      background-color: var(--bg-cream);
       font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       user-select: none;
       position: relative;
       cursor: default;
     }
 
-    /* Fondo espacial profundo y limpio */
-    .space-bg {
+    /* Fondo claro crema con cuadrícula técnica sutil estilo moodboard / lienzo */
+    .canvas-bg {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at 50% 50%, #0d121d 0%, #080a10 50%, #030406 100%);
+      background-color: var(--bg-cream);
+      background-image: 
+        linear-gradient(rgba(140, 120, 80, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(140, 120, 80, 0.08) 1px, transparent 1px);
+      background-size: 36px 36px;
       z-index: 0;
       pointer-events: none;
     }
 
-    /* Halo ambiental suave en el centro */
-    .ambient-glow {
+    /* Halo ambiental cálido y suave en el fondo */
+    .ambient-warmth {
       position: fixed;
       top: 50%;
       left: 50%;
-      width: 900px;
-      height: 900px;
+      width: 1100px;
+      height: 1100px;
       transform: translate(-50%, -50%);
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(30, 60, 110, 0.18) 0%, rgba(15, 25, 45, 0.08) 50%, transparent 75%);
-      filter: blur(60px);
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(254, 250, 224, 0.2) 60%, transparent 80%);
       z-index: 1;
       pointer-events: none;
-      transition: background 0.8s ease;
     }
 
     /* Viewport de perspectiva 3D */
@@ -65,7 +68,7 @@
       z-index: 2;
     }
 
-    /* Tarjeta individual */
+    /* Tarjeta individual (100% vertical, sin inclinación ni rotación Z) */
     .card-wrapper {
       position: absolute;
       top: 0;
@@ -87,12 +90,12 @@
       transform-style: preserve-3d;
     }
 
-    /* Brillo trasero que NO corta ni interseca con tarjetas vecinas */
+    /* Halo de luz cálida detrás de la tarjeta en hover */
     .card-glow {
       position: absolute;
-      inset: -16px;
-      border-radius: calc(var(--card-radius) + 14px);
-      filter: blur(24px) saturate(2.4);
+      inset: -14px;
+      border-radius: calc(var(--card-radius) + 12px);
+      filter: blur(22px);
       opacity: 0;
       z-index: -1;
       pointer-events: none;
@@ -105,18 +108,19 @@
       border-radius: var(--card-radius);
       overflow: hidden;
       position: relative;
-      background: #11141c;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+      background: #ffffff;
+      border: 1px solid rgba(80, 60, 30, 0.12);
+      box-shadow: 0 10px 28px rgba(60, 45, 20, 0.10), 0 2px 6px rgba(60, 45, 20, 0.05);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: border-color 0.2s ease, filter 0.18s ease-out;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, filter 0.16s ease-out;
       will-change: filter;
     }
 
     .card:hover {
-      border-color: rgba(255, 255, 255, 0.32);
+      border-color: rgba(60, 45, 20, 0.35);
+      box-shadow: 0 22px 55px rgba(60, 45, 20, 0.20), 0 4px 12px rgba(60, 45, 20, 0.08);
     }
 
     .card-img {
@@ -127,7 +131,7 @@
       pointer-events: none;
     }
 
-    /* Viñeta perimetral de DESENFOQUE PURO (SIN fondo negro) */
+    /* Viñeta perimetral de DESENFOQUE PURO (fondo claro, CERO oscuridad) */
     #fisheye-vignette {
       position: fixed;
       inset: 0;
@@ -138,7 +142,7 @@
       mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 35%, rgba(0, 0, 0, 0.45) 65%, black 90%);
     }
 
-    /* Estado Vacío */
+    /* Estado Vacío sobre fondo claro */
     .empty-state {
       position: absolute;
       top: 50%;
@@ -149,23 +153,24 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: rgba(255, 255, 255, 0.8);
+      color: #383424;
       text-align: center;
       padding: 44px 56px;
-      border: 2px dashed rgba(255, 255, 255, 0.18);
-      border-radius: 22px;
-      backdrop-filter: blur(14px);
-      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed rgba(80, 60, 30, 0.30);
+      border-radius: 20px;
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 14px 40px rgba(70, 50, 20, 0.08);
       cursor: pointer;
       transition: all 0.3s ease;
     }
 
     .empty-state:hover {
-      border-color: rgba(255, 255, 255, 0.45);
-      color: #fff;
+      border-color: rgba(80, 60, 30, 0.60);
+      color: #1a170d;
       transform: translate(-50%, -52%);
-      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6);
-      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 20px 50px rgba(70, 50, 20, 0.16);
+      background: rgba(255, 255, 255, 0.95);
     }
 
     .empty-state svg {
@@ -179,13 +184,13 @@
     .empty-state h2 {
       font-size: 1.25rem;
       font-weight: 600;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.3px;
     }
 
     .empty-state p {
       margin-top: 8px;
       font-size: 0.88rem;
-      opacity: 0.65;
+      opacity: 0.70;
     }
 
     /* Lightbox Modal */
@@ -194,7 +199,7 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(5, 7, 12, 0.65);
+      background: rgba(18, 16, 12, 0.70);
       backdrop-filter: blur(20px);
       z-index: 100;
       display: flex;
@@ -233,9 +238,9 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      filter: blur(65px) saturate(2.4) brightness(1.25);
+      filter: blur(65px) saturate(2.2) brightness(1.2);
       z-index: 0;
-      opacity: 0.85;
+      opacity: 0.75;
       pointer-events: none;
       transform: translate3d(0, 0, -25px);
     }
@@ -243,8 +248,8 @@
     .lightbox-img {
       max-width: 86vw;
       max-height: 84vh;
-      border-radius: 16px;
-      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.85);
+      border-radius: 14px;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.65);
       object-fit: contain;
       position: relative;
       z-index: 1;
@@ -262,23 +267,23 @@
   <!-- Input de archivos oculto -->
   <input type="file" id="file-input" accept="image/*" multiple>
 
-  <!-- Fondo base espacial -->
-  <div class="space-bg"></div>
+  <!-- Fondo claro crema con sutil textura de lienzo -->
+  <div class="canvas-bg"></div>
 
-  <!-- Halo de color ambiental suave en el centro -->
-  <div class="ambient-glow" id="ambient-glow"></div>
+  <!-- Halo de calidez en el centro -->
+  <div class="ambient-warmth"></div>
 
   <!-- Viewport 3D -->
   <div id="galaxy-viewport"></div>
 
-  <!-- Viñeta Ojo de Pez perimetral de desenfoque puro (sin negro) -->
+  <!-- Viñeta Ojo de Pez de desenfoque perimetral óptico (sin negro) -->
   <div id="fisheye-vignette"></div>
 
   <!-- Estado Inicial Vacío -->
   <div class="empty-state" id="empty-state">
     <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
     <h2>Haz doble clic en la pantalla</h2>
-    <p>para cargar tus imágenes y generar la galería infinita</p>
+    <p>para cargar tus imágenes y explorar el lienzo infinito</p>
   </div>
 
   <!-- Lightbox -->
@@ -291,60 +296,45 @@
 
   <script>
     // ── Referencias DOM ──
-    const fileInput     = document.getElementById('file-input');
-    const emptyState    = document.getElementById('empty-state');
-    const viewport      = document.getElementById('galaxy-viewport');
-    const ambientGlow   = document.getElementById('ambient-glow');
-    const lightbox      = document.getElementById('lightbox');
-    const lightboxImg   = document.getElementById('lightbox-img');
-    const lightboxGlow  = document.getElementById('lightbox-glow');
+    const fileInput   = document.getElementById('file-input');
+    const emptyState  = document.getElementById('empty-state');
+    const viewport    = document.getElementById('galaxy-viewport');
+    const lightbox    = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxGlow= document.getElementById('lightbox-glow');
 
     // ── Catálogo de imágenes cargadas ──
     let userImages = [];
     let rafId = null;
     let isCtrlPressed = false;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let lightboxActive = false;
 
-    // Dimensiones de tarjetas
-    const CARD_W = 240;
-    const CARD_H = 330;
+    // Dimensiones de tarjetas base
+    const CARD_W = 230;
+    const CARD_H = 320;
 
-    // ── Nodos de Constelación Abstracta en Hexagrama / Estrella ──
-    // Ninguna imagen comparte fila ni columna. Tienen ángulos radiales y rotaciones orgánicas.
-    const DEG2RAD = Math.PI / 180;
-    const STAR_NODES = [
-      // 0. Centro absoluto
-      { x: 0, y: 0, tilt: 0 },
+    // ── Disposición Estilo Moodboard / Pinterest (Desplazamientos Alternados) ──
+    // Las columnas se desfasan verticalmente para que nunca coincidan en una fila recta.
+    // Separación horizontal generosa para que las tarjetas NUNCA se toquen ni se monten.
+    const STEP_X = 310;
+    const STEP_Y = 380;
 
-      // Anillo 1: 6 puntas interiores de hexagrama (radio ~350px)
-      { x: Math.cos( 18 * DEG2RAD) * 350, y: Math.sin( 18 * DEG2RAD) * 350, tilt: -4.5 },
-      { x: Math.cos( 78 * DEG2RAD) * 370, y: Math.sin( 78 * DEG2RAD) * 370, tilt:  5.0 },
-      { x: Math.cos(138 * DEG2RAD) * 340, y: Math.sin(138 * DEG2RAD) * 340, tilt: -3.5 },
-      { x: Math.cos(198 * DEG2RAD) * 365, y: Math.sin(198 * DEG2RAD) * 365, tilt:  5.5 },
-      { x: Math.cos(258 * DEG2RAD) * 380, y: Math.sin(258 * DEG2RAD) * 380, tilt: -5.0 },
-      { x: Math.cos(318 * DEG2RAD) * 355, y: Math.sin(318 * DEG2RAD) * 355, tilt:  4.0 },
+    // Desplazamiento vertical por columna (stagger) para romper cualquier alineación horizontal
+    function getColumnStaggerY(col) {
+      const c = col;
+      if (c === 0) return 0; // Columna central tiene la imagen principal en Y = 0
+      // Alternar desfasajes elegantes (+90px, -80px, +60px, -70px...)
+      const pattern = [0, 95, -85, 60, -75, 105, -60];
+      const idx = ((Math.abs(c) % pattern.length) + pattern.length) % pattern.length;
+      return pattern[idx] * (c < 0 ? -1 : 1);
+    }
 
-      // Anillo 2: 6 puntas estelares exteriores intercaladas (radio ~670px)
-      { x: Math.cos( 48 * DEG2RAD) * 670, y: Math.sin( 48 * DEG2RAD) * 670, tilt:  6.5 },
-      { x: Math.cos(108 * DEG2RAD) * 650, y: Math.sin(108 * DEG2RAD) * 650, tilt: -6.0 },
-      { x: Math.cos(168 * DEG2RAD) * 690, y: Math.sin(168 * DEG2RAD) * 690, tilt:  5.0 },
-      { x: Math.cos(228 * DEG2RAD) * 660, y: Math.sin(228 * DEG2RAD) * 660, tilt: -7.0 },
-      { x: Math.cos(288 * DEG2RAD) * 695, y: Math.sin(288 * DEG2RAD) * 695, tilt:  5.5 },
-      { x: Math.cos(348 * DEG2RAD) * 665, y: Math.sin(348 * DEG2RAD) * 665, tilt: -4.0 },
-
-      // Anillo 3: Puntos puente para el enlace estelar infinito entre clusters
-      { x: Math.cos(  0 * DEG2RAD) * 970, y: Math.sin(  0 * DEG2RAD) * 970, tilt:  3.5 },
-      { x: Math.cos(120 * DEG2RAD) * 970, y: Math.sin(120 * DEG2RAD) * 970, tilt: -4.5 },
-      { x: Math.cos(240 * DEG2RAD) * 970, y: Math.sin(240 * DEG2RAD) * 970, tilt:  5.0 }
-    ];
-
-    // Espaciado del entramado hexagonal de clusters
-    const CLUSTER_DX = 1380;
-    const CLUSTER_DY = 1195; // 1380 * sin(60°)
-
-    // Cámara con posición e inercia
+    // Cámara con posición, inercia y autocentrado magnético
     const camera = {
       x: 0,
       y: 0,
@@ -354,22 +344,23 @@
       vy: 0
     };
 
-    // Parámetros de velocidad y aceleración
-    const BASE_SPEED = 28;
-    const ACCEL_POWER = 2.0;
-    const INERTIA_FRICTION = 0.92;
-    const LERP_SMOOTH = 0.09;
+    // Parámetros de velocidad y suavizado
+    const BASE_SPEED = 26;
+    const ACCEL_POWER = 1.9;
+    const INERTIA_FRICTION = 0.91;
+    const LERP_SMOOTH = 0.085;
+    const AUTO_SNAP_SPEED = 0.065; // Suavidad para acomodarse lentamente en el centro
 
-    // Efecto Ojo de Pez (Fisheye 3D)
-    const MAX_SINK_Z = 430;
-    const MAX_TILT   = 19;
+    // Efecto Ojo de Pez
+    const MAX_SINK_Z = 360;
+    const MAX_TILT   = 15;
 
     // Piscina de tarjetas DOM para alto rendimiento (60-120fps)
     const cardPool = [];
-    const MAX_POOL_SIZE = 95;
+    const MAX_POOL_SIZE = 75;
 
     function initCardPool() {
-      for (let i = 0; i < MAX_POOL_SIZE; i++) {
+      for (let k = 0; k < MAX_POOL_SIZE; k++) {
         const wrapper = document.createElement('div');
         wrapper.className = 'card-wrapper';
         wrapper.style.display = 'none';
@@ -402,28 +393,29 @@
           imageIndex: -1,
           hovered: false,
           hoverRotX: 0,
-          hoverRotY: 0
+          hoverRotY: 0,
+          worldX: 0,
+          worldY: 0
         };
 
-        // Hover 3D + glow reactivo sin cortes
+        // Hover 3D + glow reactivo
         wrapper.addEventListener('mousemove', (e) => {
-          if (isCtrlPressed || lightboxActive) return;
+          if (isCtrlPressed || lightboxActive || isDragging) return;
           const rect = wrapper.getBoundingClientRect();
           const normX = (e.clientX - rect.left) / rect.width;
           const normY = (e.clientY - rect.top) / rect.height;
 
-          cardItem.hoverRotX = (normY - 0.5) * 22;
-          cardItem.hoverRotY = -(normX - 0.5) * 22;
+          cardItem.hoverRotX = (normY - 0.5) * 16;
+          cardItem.hoverRotY = -(normX - 0.5) * 16;
           cardItem.hovered = true;
 
-          // Al hacer hover, se elimina el blur de inmediato para máxima nitidez
+          // Al hacer hover, se asegura máxima nitidez
           card.style.filter = 'none';
 
-          // Encender brillo trasero
+          // Resplandor cálido
           glow.style.opacity = '1';
-          glow.style.background = `radial-gradient(circle at ${normX * 100}% ${normY * 100}%, rgba(100, 180, 255, 0.7) 0%, rgba(30, 80, 180, 0.35) 45%, transparent 75%)`;
-          inner.style.transform = `translateZ(55px) scale(1.09) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
-          inner.style.boxShadow = '0 32px 80px rgba(0, 0, 0, 0.85), 0 0 45px rgba(80, 160, 255, 0.45)';
+          glow.style.background = `radial-gradient(circle at ${normX * 100}% ${normY * 100}%, rgba(240, 190, 100, 0.55) 0%, rgba(200, 150, 70, 0.2) 50%, transparent 75%)`;
+          inner.style.transform = `translateZ(45px) scale(1.05) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
         });
 
         wrapper.addEventListener('mouseleave', () => {
@@ -432,7 +424,6 @@
           cardItem.hoverRotY = 0;
           glow.style.opacity = '0';
           inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
-          inner.style.boxShadow = '';
         });
 
         wrapper.addEventListener('click', (e) => {
@@ -448,12 +439,15 @@
 
     initCardPool();
 
-    // ── Mapeo determinista de imágenes en la constelación ──
-    function getClusterImageIndex(u, v, nodeIndex, count) {
+    // ── Mapeo armónico de imágenes en el moodboard ──
+    // Asegura que (0,0) es siempre imagen 0, y que las vecinas nunca coinciden
+    function getMoodboardImageIndex(c, r, count) {
       if (count <= 1) return 0;
-      if (u === 0 && v === 0 && nodeIndex === 0) return 0; // Centro absoluto es siempre imagen 0
-      const seed = Math.abs(u * 73856093 ^ v * 19349663 ^ nodeIndex * 83492791);
-      return (seed + nodeIndex) % count;
+      if (c === 0 && r === 0) return 0; // Imagen central principal
+
+      const k = (count % 2 === 0) ? (count - 1) : 3;
+      let val = c * 2 + r * k;
+      return ((val % count) + count) % count;
     }
 
     // ── Optimización de imágenes en cliente con Canvas ──
@@ -495,7 +489,7 @@
       });
     }
 
-    // ── Teclado y Control de Vuelo ──
+    // ── Control de Navegación (Ctrl + Cursor & Mouse Drag & Wheel) ──
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Control') {
         isCtrlPressed = true;
@@ -508,7 +502,7 @@
         isCtrlPressed = false;
         document.body.style.cursor = 'default';
 
-        // Conservar inercia al soltar
+        // Inercia de salida
         const cx = window.innerWidth / 2;
         const cy = window.innerHeight / 2;
         const ndx = (mouseX - cx) / cx;
@@ -516,17 +510,54 @@
         const dist = Math.hypot(ndx, ndy);
         const speed = BASE_SPEED * Math.pow(dist, ACCEL_POWER);
 
-        camera.vx = ndx * speed * 0.45;
-        camera.vy = ndy * speed * 0.45;
+        camera.vx = ndx * speed * 0.40;
+        camera.vy = ndy * speed * 0.40;
       }
     });
 
     document.addEventListener('mousemove', (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
+
+      if (isDragging) {
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+
+        camera.targetX -= dx * 1.2;
+        camera.targetY -= dy * 1.2;
+        camera.vx = -dx * 0.4;
+        camera.vy = -dy * 0.4;
+      }
     });
 
-    // ── Actualización de Cámara con Alta Aceleración ──
+    // Paneo con arrastre de ratón (opcional además de Ctrl)
+    window.addEventListener('mousedown', (e) => {
+      if (lightboxActive || e.target.closest('.card-wrapper')) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      document.body.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        document.body.style.cursor = isCtrlPressed ? 'crosshair' : 'default';
+      }
+    });
+
+    // Soporte para rueda de ratón / touchpad
+    window.addEventListener('wheel', (e) => {
+      if (lightboxActive) return;
+      camera.targetX += e.deltaX * 0.75;
+      camera.targetY += e.deltaY * 0.75;
+      camera.vx = e.deltaX * 0.35;
+      camera.vy = e.deltaY * 0.35;
+    }, { passive: true });
+
+    // ── Actualización de Cámara con Autocentrado Magnético ──
     function updateCamera() {
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
@@ -536,13 +567,14 @@
         const ndy = (mouseY - cy) / cy;
         const dist = Math.min(Math.hypot(ndx, ndy), 1.5);
 
-        const speed = BASE_SPEED * (1 + Math.pow(dist, ACCEL_POWER) * 2.2);
+        const speed = BASE_SPEED * (1 + Math.pow(dist, ACCEL_POWER) * 2.0);
 
         camera.targetX += ndx * speed;
         camera.targetY += ndy * speed;
         camera.vx = ndx * speed;
         camera.vy = ndy * speed;
-      } else {
+      } else if (!isDragging) {
+        // Desaceleración por inercia
         camera.vx *= INERTIA_FRICTION;
         camera.vy *= INERTIA_FRICTION;
         if (Math.abs(camera.vx) < 0.05) camera.vx = 0;
@@ -550,13 +582,52 @@
 
         camera.targetX += camera.vx;
         camera.targetY += camera.vy;
+
+        // ── AUTOCENTRADO MAGNÉTICO (Acomodar lentamente en el centro) ──
+        // Si no se está navegando activamente y la velocidad es baja,
+        // la galería se desliza suavemente para fijar la imagen más cercana en el centro exacto.
+        if (userImages.length > 0 && Math.hypot(camera.vx, camera.vy) < 1.8) {
+          snapToNearestCard();
+        }
       }
 
       camera.x += (camera.targetX - camera.x) * LERP_SMOOTH;
       camera.y += (camera.targetY - camera.y) * LERP_SMOOTH;
     }
 
-    // ── Renderizado Infinito (Constelación Abstracta en Hexagrama + Desenfoque Óptico) ──
+    // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
+    function snapToNearestCard() {
+      const approxC = Math.round(camera.targetX / STEP_X);
+      let bestX = 0;
+      let bestY = 0;
+      let minDistance = Infinity;
+
+      // Buscar en las columnas y filas inmediatas
+      for (let dc = -1; dc <= 1; dc++) {
+        const c = approxC + dc;
+        const colShiftY = getColumnStaggerY(c);
+        const approxR = Math.round((camera.targetY - colShiftY) / STEP_Y);
+
+        for (let dr = -1; dr <= 1; dr++) {
+          const r = approxR + dr;
+          const worldX = c * STEP_X;
+          const worldY = r * STEP_Y + colShiftY;
+
+          const dist = Math.hypot(camera.x - worldX, camera.y - worldY);
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestX = worldX;
+            bestY = worldY;
+          }
+        }
+      }
+
+      // Deslizarse suavemente hacia el centro de esa tarjeta
+      camera.targetX += (bestX - camera.targetX) * AUTO_SNAP_SPEED;
+      camera.targetY += (bestY - camera.targetY) * AUTO_SNAP_SPEED;
+    }
+
+    // ── Renderizado Infinito Moodboard + Centro Ampliado ──
     function renderInfiniteGallery() {
       if (userImages.length === 0) return;
 
@@ -566,95 +637,96 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      // Margen de detección para clusters estelares
-      const clusterMargin = 1000;
-      const minU = Math.floor((camera.x - cx - clusterMargin) / CLUSTER_DX) - 1;
-      const maxU = Math.ceil((camera.x + cx + clusterMargin) / CLUSTER_DX) + 1;
-      const minV = Math.floor((camera.y - cy - clusterMargin) / CLUSTER_DY) - 1;
-      const maxV = Math.ceil((camera.y + cy + clusterMargin) / CLUSTER_DY) + 1;
+      // Calcular columnas visibles alrededor de la cámara
+      const buffer = 420;
+      const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
+      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
 
       let poolIndex = 0;
-      const screenPadding = 260;
 
-      for (let v = minV; v <= maxV; v++) {
-        const clusterOffsetY = v * CLUSTER_DY;
-        const rowShiftX = (Math.abs(v) % 2 !== 0) ? (CLUSTER_DX * 0.5) : 0;
+      for (let c = minCol; c <= maxCol; c++) {
+        const colShiftY = getColumnStaggerY(c);
+        const worldX = c * STEP_X;
 
-        for (let u = minU; u <= maxU; u++) {
-          const clusterOffsetX = u * CLUSTER_DX + rowShiftX;
+        // Filas visibles en esta columna
+        const minRow = Math.floor((camera.y - cy - buffer - colShiftY) / STEP_Y) - 1;
+        const maxRow = Math.ceil((camera.y + cy + buffer - colShiftY) / STEP_Y) + 1;
 
-          for (let k = 0; k < STAR_NODES.length; k++) {
-            if (poolIndex >= MAX_POOL_SIZE) break;
+        for (let r = minRow; r <= maxRow; r++) {
+          if (poolIndex >= MAX_POOL_SIZE) break;
 
-            const node = STAR_NODES[k];
-            const worldX = clusterOffsetX + node.x;
-            const worldY = clusterOffsetY + node.y;
+          const worldY = r * STEP_Y + colShiftY;
 
-            // Proyección en pantalla
-            const screenX = worldX - camera.x + cx - (CARD_W / 2);
-            const screenY = worldY - camera.y + cy - (CARD_H / 2);
+          // Proyección en pantalla
+          const screenX = worldX - camera.x + cx - (CARD_W / 2);
+          const screenY = worldY - camera.y + cy - (CARD_H / 2);
 
-            // Descartar si cae muy fuera de la ventana
-            if (screenX + CARD_W < -screenPadding || screenX > winW + screenPadding) continue;
-            if (screenY + CARD_H < -screenPadding || screenY > winH + screenPadding) continue;
+          // Descartar si cae muy fuera de la ventana
+          if (screenX + CARD_W < -120 || screenX > winW + 120) continue;
+          if (screenY + CARD_H < -120 || screenY > winH + 120) continue;
 
-            const cardItem = cardPool[poolIndex];
-            poolIndex++;
+          const cardItem = cardPool[poolIndex];
+          poolIndex++;
 
-            // Mapear imagen
-            const imgIdx = getClusterImageIndex(u, v, k, userImages.length);
-            if (cardItem.imageIndex !== imgIdx) {
-              cardItem.imageIndex = imgIdx;
-              cardItem.img.src = userImages[imgIdx].thumb;
-            }
+          cardItem.worldX = worldX;
+          cardItem.worldY = worldY;
 
-            // Distancia al centro de la pantalla
-            const cardCenterX = screenX + CARD_W / 2;
-            const cardCenterY = screenY + CARD_H / 2;
-            const deltaX = cardCenterX - cx;
-            const deltaY = cardCenterY - cy;
-            const dist = Math.hypot(deltaX, deltaY);
-            const normDist = Math.min(dist / maxScreenDist, 1.25);
-
-            // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
-            // 1. Hundimiento cuadrático en Z hacia las esquinas
-            const fisheyeZ = -Math.pow(normDist, 1.8) * MAX_SINK_Z;
-
-            // 2. Curvatura esférica
-            const angle = Math.atan2(deltaY, deltaX);
-            const tiltFactor = Math.pow(normDist, 1.2) * MAX_TILT;
-            const rotX = Math.sin(angle) * tiltFactor;
-            const rotY = -Math.cos(angle) * tiltFactor;
-
-            // 3. Rotación abstracta inherente a cada nodo estelar
-            const rotZ = node.tilt;
-
-            // 4. Escala ligera
-            const scale = Math.max(1.0 - normDist * 0.14, 0.78);
-
-            // 5. DESENFOQUE ÓPTICO EN BORDES (SIN OSCURIDAD / SIN NEGRO)
-            // Las tarjetas periféricas se desenfocan suavemente como en una lente bokeh
-            if (!cardItem.hovered) {
-              let blurPx = 0;
-              if (normDist > 0.40) {
-                blurPx = Math.pow((normDist - 0.40) / 0.60, 1.35) * 11;
-              }
-              cardItem.card.style.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
-            }
-
-            // Aplicar transformaciones 3D aceleradas
-            cardItem.wrapper.style.display = 'block';
-            cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg) scale(${scale})`;
-
-            // Las tarjetas del centro tienen mayor prioridad visual
-            cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.3 - normDist) * 35);
+          // Asignar imagen
+          const imgIdx = getMoodboardImageIndex(c, r, userImages.length);
+          if (cardItem.imageIndex !== imgIdx) {
+            cardItem.imageIndex = imgIdx;
+            cardItem.img.src = userImages[imgIdx].thumb;
           }
+
+          // Distancia exacta de esta tarjeta al centro de la pantalla
+          const cardCenterX = screenX + CARD_W / 2;
+          const cardCenterY = screenY + CARD_H / 2;
+          const deltaX = cardCenterX - cx;
+          const deltaY = cardCenterY - cy;
+          const dist = Math.hypot(deltaX, deltaY);
+          const normDist = Math.min(dist / maxScreenDist, 1.25);
+
+          // ── ESCALA DINÁMICA: LA IMAGEN DEL CENTRO ES MÁS GRANDE ──
+          // Centro exacto: ~1.28x (grande, destacada, nítida)
+          // Alrededor: ~0.94x a 0.98x (ligeramente más pequeñas, NO diminutas)
+          // Periferia: ~0.84x
+          const centerProminence = Math.max(0, 1.0 - Math.pow(normDist, 1.35));
+          const dynamicScale = 0.84 + centerProminence * 0.44; // 1.28 en centro -> 0.84 en extremos
+
+          // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
+          // 1. Hundimiento suave en Z hacia los bordes
+          const fisheyeZ = -Math.pow(normDist, 1.8) * MAX_SINK_Z;
+
+          // 2. Curvatura de lente suave
+          const angle = Math.atan2(deltaY, deltaX);
+          const tiltFactor = Math.pow(normDist, 1.2) * MAX_TILT;
+          const rotX = Math.sin(angle) * tiltFactor;
+          const rotY = -Math.cos(angle) * tiltFactor;
+
+          // 3. Cero rotación en Z (100% rectas y verticales como en la referencia)
+          // rotZ = 0deg
+
+          // 4. DESENFOQUE ÓPTICO EN BORDES (SIN OSCURIDAD / FONDO CLARO)
+          if (!cardItem.hovered) {
+            let blurPx = 0;
+            if (normDist > 0.45) {
+              blurPx = Math.pow((normDist - 0.45) / 0.55, 1.35) * 11;
+            }
+            cardItem.card.style.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
+          }
+
+          // Aplicar transformaciones 3D aceleradas
+          cardItem.wrapper.style.display = 'block';
+          cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${dynamicScale})`;
+
+          // La tarjeta más cercana al centro tiene mayor z-index y queda al frente
+          cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.3 - normDist) * 35);
         }
       }
 
       // Ocultar tarjetas libres del pool
-      for (let i = poolIndex; i < MAX_POOL_SIZE; i++) {
-        cardPool[i].wrapper.style.display = 'none';
+      for (let k = poolIndex; k < MAX_POOL_SIZE; k++) {
+        cardPool[k].wrapper.style.display = 'none';
       }
     }
 
