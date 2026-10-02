@@ -11,8 +11,6 @@
     :root {
       --perspective: 1100px;
       --card-radius: 12px;
-      --card-width: 230px;
-      --card-height: 320px;
       --bg-cream: #fefae0;
     }
 
@@ -76,8 +74,6 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: var(--card-width);
-      height: var(--card-height);
       will-change: transform;
       cursor: pointer;
       pointer-events: auto;
@@ -313,14 +309,25 @@
     let mouseY = window.innerHeight / 2;
     let lightboxActive = false;
 
-    // Dimensiones de tarjetas base (proporción póster 1 : 1.39)
-    const CARD_W = 216;
-    const CARD_H = 300;
+    // ── Dimensiones Dinámicas y Gap Uniforme (Miro / FigJam) ──
+    const BASE_COL_W = 216;
+    const GAP = 32; // Exactamente 32px de separación tanto en horizontal como en vertical
+    const STD_SCALE = 0.92;
+    const HERO_SCALE = 1.28;
+    const STD_W = BASE_COL_W * STD_SCALE; // ~198.7px
+    const HERO_W = BASE_COL_W * HERO_SCALE; // ~276.5px
 
-    // ── Disposición Estilo Miro / Pinterest (Staggered Masonry Asimétrico) ──
-    // Separación horizontal uniforme (272px) y vertical (362px) para un gap limpio de ~32-35px
-    const STEP_X = 272;
-    const STEP_Y = 362;
+    // Posición X de cada columna para que el gap horizontal sea EXACTAMENTE igual a GAP (32px)
+    function getColumnX(c) {
+      if (c === 0) return 0;
+      const firstStep = (HERO_W / 2) + GAP + (STD_W / 2); // 270px
+      const stdStep = STD_W + GAP; // 230.7px
+      if (c > 0) {
+        return firstStep + (c - 1) * stdStep;
+      } else {
+        return -firstStep + (c + 1) * stdStep;
+      }
+    }
 
     // Desfasaje vertical asimétrico por columna (Miro / FigJam / Pinterest)
     // CERO filas horizontales: cada columna corre a una altura vertical completamente distinta
@@ -329,6 +336,86 @@
       const pattern = [0, -115, 85, -75, 110, -95, 65];
       const idx = ((Math.abs(c) % pattern.length) + pattern.length) % pattern.length;
       return pattern[idx] * (c < 0 ? -1 : 1);
+    }
+
+    // Altura natural según el formato de la imagen (horizontal, cuadrada o vertical)
+    function getCardNaturalHeight(imgIdx) {
+      if (imgIdx < 0 || !userImages[imgIdx]) return 300;
+      const img = userImages[imgIdx];
+      const ratio = (img.w && img.h) ? (img.w / img.h) : 0.72;
+      // Horizontal (ratio > 1.2) -> altura reducida (~150-180px)
+      // Cuadrada (0.85-1.2) -> altura cuadrada (~216px)
+      // Vertical (ratio < 0.85) -> altura póster (~300-312px)
+      return Math.round(Math.max(150, Math.min(312, BASE_COL_W / ratio)));
+    }
+
+    // Altura visual proyectada de una tarjeta
+    function getCardVisualHeight(c, r, count) {
+      const imgIdx = getMoodboardImageIndex(c, r, count);
+      const natH = getCardNaturalHeight(imgIdx);
+      const isHero = (c === 0 && r === 0);
+      const scale = isHero ? HERO_SCALE : STD_SCALE;
+      return natH * scale;
+    }
+
+    // Posición del centro (worldX, worldY) de cada tarjeta
+    // Garantiza que entre tarjeta y tarjeta haya EXACTAMENTE GAP (32px) en horizontal y vertical
+    function getCardWorldPos(c, r, count) {
+      const worldX = getColumnX(c);
+      let worldY = 0;
+
+      if (c === 0) {
+        if (r === 0) {
+          worldY = 0;
+        } else if (r > 0) {
+          let currentY = getCardVisualHeight(0, 0, count) / 2;
+          for (let i = 1; i <= r; i++) {
+            const hPrev = i === 1 ? 0 : getCardVisualHeight(0, i - 1, count);
+            const hCurr = getCardVisualHeight(0, i, count);
+            if (i === 1) {
+              currentY += GAP + (hCurr / 2);
+            } else {
+              currentY += (hPrev / 2) + GAP + (hCurr / 2);
+            }
+          }
+          worldY = currentY;
+        } else {
+          let currentY = -(getCardVisualHeight(0, 0, count) / 2);
+          for (let i = -1; i >= r; i--) {
+            const hPrev = i === -1 ? 0 : getCardVisualHeight(0, i + 1, count);
+            const hCurr = getCardVisualHeight(0, i, count);
+            if (i === -1) {
+              currentY -= (GAP + (hCurr / 2));
+            } else {
+              currentY -= ((hPrev / 2) + GAP + (hCurr / 2));
+            }
+          }
+          worldY = currentY;
+        }
+      } else {
+        const colOff = getColumnOffset(c);
+        if (r === 0) {
+          worldY = colOff;
+        } else if (r > 0) {
+          let currentY = colOff;
+          for (let i = 1; i <= r; i++) {
+            const hPrev = getCardVisualHeight(c, i - 1, count);
+            const hCurr = getCardVisualHeight(c, i, count);
+            currentY += (hPrev / 2) + GAP + (hCurr / 2);
+          }
+          worldY = currentY;
+        } else {
+          let currentY = colOff;
+          for (let i = -1; i >= r; i--) {
+            const hPrev = getCardVisualHeight(c, i + 1, count);
+            const hCurr = getCardVisualHeight(c, i, count);
+            currentY -= ((hPrev / 2) + GAP + (hCurr / 2));
+          }
+          worldY = currentY;
+        }
+      }
+
+      return { worldX, worldY };
     }
 
     // Cámara con posición, inercia y autocentrado magnético
@@ -595,31 +682,24 @@
 
     // Calcula la tarjeta más cercana a la vista y la toma como objetivo central
     function snapToNearestCard() {
-      const approxC = Math.round(camera.targetX / STEP_X);
+      const approxC = Math.round(camera.targetX / (STD_W + GAP));
       let bestX = 0;
       let bestY = 0;
       let minDistance = Infinity;
 
       for (let dc = -1; dc <= 1; dc++) {
         const c = approxC + dc;
-        const colOff = getColumnOffset(c);
-        const approxR = Math.round((camera.targetY - colOff) / STEP_Y);
-
-        for (let dr = -1; dr <= 1; dr++) {
-          const r = approxR + dr;
-          const worldX = c * STEP_X;
-          const worldY = r * STEP_Y + colOff;
-
-          const dist = Math.hypot(camera.x - worldX, camera.y - worldY);
+        for (let r = -2; r <= 2; r++) {
+          const pos = getCardWorldPos(c, r, userImages.length);
+          const dist = Math.hypot(camera.x - pos.worldX, camera.y - pos.worldY);
           if (dist < minDistance) {
             minDistance = dist;
-            bestX = worldX;
-            bestY = worldY;
+            bestX = pos.worldX;
+            bestY = pos.worldY;
           }
         }
       }
 
-      // Deslizarse suavemente hacia el centro de esa tarjeta
       camera.targetX += (bestX - camera.targetX) * AUTO_SNAP_SPEED;
       camera.targetY += (bestY - camera.targetY) * AUTO_SNAP_SPEED;
     }
@@ -634,33 +714,35 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      // Calcular columnas visibles alrededor de la cámara
       const buffer = 550;
-      const minCol = Math.floor((camera.x - cx - buffer) / STEP_X) - 1;
-      const maxCol = Math.ceil((camera.x + cx + buffer) / STEP_X) + 1;
+      const stdColStep = STD_W + GAP;
+      const minCol = Math.floor((camera.x - cx - buffer) / stdColStep) - 1;
+      const maxCol = Math.ceil((camera.x + cx + buffer) / stdColStep) + 1;
 
       let poolIndex = 0;
 
       for (let c = minCol; c <= maxCol; c++) {
-        const colOff = getColumnOffset(c);
-        const worldX = c * STEP_X;
-
-        // Filas visibles en esta columna
-        const minRow = Math.floor((camera.y - cy - buffer - colOff) / STEP_Y) - 1;
-        const maxRow = Math.ceil((camera.y + cy + buffer - colOff) / STEP_Y) + 1;
+        const minRow = Math.floor((camera.y - cy - buffer) / 320) - 1;
+        const maxRow = Math.ceil((camera.y + cy + buffer) / 320) + 1;
 
         for (let r = minRow; r <= maxRow; r++) {
           if (poolIndex >= MAX_POOL_SIZE) break;
 
-          const worldY = r * STEP_Y + colOff;
+          const imgIdx = getMoodboardImageIndex(c, r, userImages.length);
+          const cardW = BASE_COL_W;
+          const cardH = getCardNaturalHeight(imgIdx);
+
+          const pos = getCardWorldPos(c, r, userImages.length);
+          const worldX = pos.worldX;
+          const worldY = pos.worldY;
 
           // Proyección en pantalla
-          const screenX = worldX - camera.x + cx - (CARD_W / 2);
-          const screenY = worldY - camera.y + cy - (CARD_H / 2);
+          const screenX = worldX - camera.x + cx - (cardW / 2);
+          const screenY = worldY - camera.y + cy - (cardH / 2);
 
           // Descartar si cae muy fuera de la ventana
-          if (screenX + CARD_W < -140 || screenX > winW + 140) continue;
-          if (screenY + CARD_H < -140 || screenY > winH + 140) continue;
+          if (screenX + cardW < -140 || screenX > winW + 140) continue;
+          if (screenY + cardH < -140 || screenY > winH + 140) continue;
 
           const cardItem = cardPool[poolIndex];
           poolIndex++;
@@ -668,16 +750,19 @@
           cardItem.worldX = worldX;
           cardItem.worldY = worldY;
 
+          // Dimensiones adaptadas dinámicamente al formato de la imagen (horizontal, cuadrada o vertical)
+          cardItem.wrapper.style.width = `${cardW}px`;
+          cardItem.wrapper.style.height = `${cardH}px`;
+
           // Asignar imagen
-          const imgIdx = getMoodboardImageIndex(c, r, userImages.length);
           if (cardItem.imageIndex !== imgIdx) {
             cardItem.imageIndex = imgIdx;
             cardItem.img.src = userImages[imgIdx].thumb;
           }
 
           // Distancia exacta de esta tarjeta al centro de la pantalla
-          const cardCenterX = screenX + CARD_W / 2;
-          const cardCenterY = screenY + CARD_H / 2;
+          const cardCenterX = screenX + cardW / 2;
+          const cardCenterY = screenY + cardH / 2;
           const deltaX = cardCenterX - cx;
           const deltaY = cardCenterY - cy;
           const dist = Math.hypot(deltaX, deltaY);
@@ -685,11 +770,11 @@
 
           // ── ESCALA DINÁMICA PROTAGÓNICA: LA IMAGEN CENTRAL ES NOTABLEMENTE MÁS GRANDE ──
           // Radio de enfoque local (~260px): solo la imagen en el centro se expande a 1.28x.
-          // Las imágenes de alrededor quedan en 0.92x (visibles, proporcionadas y con gap holgado).
+          // Las imágenes de alrededor quedan en 0.92x (visibles, proporcionadas y con gap uniforme de 32px).
           const focusRadius = 260;
           const proximity = Math.max(0, 1.0 - Math.min(dist / focusRadius, 1.0));
           const centerBoost = Math.pow(proximity, 1.4);
-          const dynamicScale = 0.92 + centerBoost * 0.36; // 1.28x en el centro -> 0.92x alrededor
+          const dynamicScale = STD_SCALE + centerBoost * (HERO_SCALE - STD_SCALE);
 
           // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
           // 1. Hundimiento suave en Z hacia los bordes
