@@ -1,0 +1,1 @@
+Galería interactiva con efecto infinito que permite añadir imágenes y desplazarse manteniendo presionada la tecla Ctrl. Al hacer clic en cualquier imagen, esta se expande para mostrar los detalles mediante una animación en 3D.
