@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galería Infinita 3D</title>
-  <meta name="description" content="Galería interactiva 3D infinita con efecto ojo de pez y mosaico continuo">
+  <meta name="description" content="Galería interactiva 3D infinita con constelación abstracta en hexagrama y desenfoque perimetral">
   <style>
     :root {
       --perspective: 1100px;
       --card-radius: 16px;
-      --card-width: 250px;
-      --card-height: 340px;
+      --card-width: 240px;
+      --card-height: 330px;
     }
 
     * {
@@ -72,7 +72,7 @@
       left: 0;
       width: var(--card-width);
       height: var(--card-height);
-      will-change: transform, opacity;
+      will-change: transform;
       cursor: pointer;
       pointer-events: auto;
       transform-origin: center center;
@@ -111,11 +111,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.2s ease, filter 0.18s ease-out;
+      will-change: filter;
     }
 
     .card:hover {
-      border-color: rgba(255, 255, 255, 0.28);
+      border-color: rgba(255, 255, 255, 0.32);
     }
 
     .card-img {
@@ -126,23 +127,16 @@
       pointer-events: none;
     }
 
-    /* Viñeta perimetral Ojo de Pez */
+    /* Viñeta perimetral de DESENFOQUE PURO (SIN fondo negro) */
     #fisheye-vignette {
       position: fixed;
       inset: 0;
       z-index: 5;
       pointer-events: none;
-      background: radial-gradient(
-        ellipse 52% 52% at 50% 50%,
-        transparent 0%,
-        transparent 65%,
-        rgba(3, 4, 7, 0.35) 80%,
-        rgba(3, 4, 7, 0.75) 92%,
-        rgba(3, 4, 7, 0.96) 100%
-      );
+      backdrop-filter: blur(14px);
+      -webkit-mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 35%, rgba(0, 0, 0, 0.45) 65%, black 90%);
+      mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 35%, rgba(0, 0, 0, 0.45) 65%, black 90%);
     }
-
-
 
     /* Estado Vacío */
     .empty-state {
@@ -200,8 +194,8 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(5, 7, 12, 0.55);
-      backdrop-filter: blur(16px);
+      background: rgba(5, 7, 12, 0.65);
+      backdrop-filter: blur(20px);
       z-index: 100;
       display: flex;
       justify-content: center;
@@ -277,10 +271,8 @@
   <!-- Viewport 3D -->
   <div id="galaxy-viewport"></div>
 
-  <!-- Viñeta Ojo de Pez perimetral -->
+  <!-- Viñeta Ojo de Pez perimetral de desenfoque puro (sin negro) -->
   <div id="fisheye-vignette"></div>
-
-
 
   <!-- Estado Inicial Vacío -->
   <div class="empty-state" id="empty-state">
@@ -315,13 +307,42 @@
     let mouseY = window.innerHeight / 2;
     let lightboxActive = false;
 
-    // Dimensiones de celdas de la cuadrícula infinita
-    const CARD_W = 250;
-    const CARD_H = 340;
-    const GAP_X  = 38;
-    const GAP_Y  = 38;
-    const STEP_X = CARD_W + GAP_X; // 288px
-    const STEP_Y = CARD_H + GAP_Y; // 378px
+    // Dimensiones de tarjetas
+    const CARD_W = 240;
+    const CARD_H = 330;
+
+    // ── Nodos de Constelación Abstracta en Hexagrama / Estrella ──
+    // Ninguna imagen comparte fila ni columna. Tienen ángulos radiales y rotaciones orgánicas.
+    const DEG2RAD = Math.PI / 180;
+    const STAR_NODES = [
+      // 0. Centro absoluto
+      { x: 0, y: 0, tilt: 0 },
+
+      // Anillo 1: 6 puntas interiores de hexagrama (radio ~350px)
+      { x: Math.cos( 18 * DEG2RAD) * 350, y: Math.sin( 18 * DEG2RAD) * 350, tilt: -4.5 },
+      { x: Math.cos( 78 * DEG2RAD) * 370, y: Math.sin( 78 * DEG2RAD) * 370, tilt:  5.0 },
+      { x: Math.cos(138 * DEG2RAD) * 340, y: Math.sin(138 * DEG2RAD) * 340, tilt: -3.5 },
+      { x: Math.cos(198 * DEG2RAD) * 365, y: Math.sin(198 * DEG2RAD) * 365, tilt:  5.5 },
+      { x: Math.cos(258 * DEG2RAD) * 380, y: Math.sin(258 * DEG2RAD) * 380, tilt: -5.0 },
+      { x: Math.cos(318 * DEG2RAD) * 355, y: Math.sin(318 * DEG2RAD) * 355, tilt:  4.0 },
+
+      // Anillo 2: 6 puntas estelares exteriores intercaladas (radio ~670px)
+      { x: Math.cos( 48 * DEG2RAD) * 670, y: Math.sin( 48 * DEG2RAD) * 670, tilt:  6.5 },
+      { x: Math.cos(108 * DEG2RAD) * 650, y: Math.sin(108 * DEG2RAD) * 650, tilt: -6.0 },
+      { x: Math.cos(168 * DEG2RAD) * 690, y: Math.sin(168 * DEG2RAD) * 690, tilt:  5.0 },
+      { x: Math.cos(228 * DEG2RAD) * 660, y: Math.sin(228 * DEG2RAD) * 660, tilt: -7.0 },
+      { x: Math.cos(288 * DEG2RAD) * 695, y: Math.sin(288 * DEG2RAD) * 695, tilt:  5.5 },
+      { x: Math.cos(348 * DEG2RAD) * 665, y: Math.sin(348 * DEG2RAD) * 665, tilt: -4.0 },
+
+      // Anillo 3: Puntos puente para el enlace estelar infinito entre clusters
+      { x: Math.cos(  0 * DEG2RAD) * 970, y: Math.sin(  0 * DEG2RAD) * 970, tilt:  3.5 },
+      { x: Math.cos(120 * DEG2RAD) * 970, y: Math.sin(120 * DEG2RAD) * 970, tilt: -4.5 },
+      { x: Math.cos(240 * DEG2RAD) * 970, y: Math.sin(240 * DEG2RAD) * 970, tilt:  5.0 }
+    ];
+
+    // Espaciado del entramado hexagonal de clusters
+    const CLUSTER_DX = 1380;
+    const CLUSTER_DY = 1195; // 1380 * sin(60°)
 
     // Cámara con posición e inercia
     const camera = {
@@ -333,21 +354,20 @@
       vy: 0
     };
 
-    // Parámetros de velocidad y aceleración (duplicados y potenciados)
-    const BASE_SPEED = 28; // Velocidad base duplicada
-    const ACCEL_POWER = 2.0; // Aceleración hacia las esquinas
+    // Parámetros de velocidad y aceleración
+    const BASE_SPEED = 28;
+    const ACCEL_POWER = 2.0;
     const INERTIA_FRICTION = 0.92;
     const LERP_SMOOTH = 0.09;
 
     // Efecto Ojo de Pez (Fisheye 3D)
-    const MAX_SINK_Z = 420; // Cuánto se hunden las tarjetas en los bordes
-    const MAX_TILT   = 18;  // Grados de rotación hacia el centro
+    const MAX_SINK_Z = 430;
+    const MAX_TILT   = 19;
 
-    // Piscina de tarjetas DOM para renderizado de alto rendimiento
+    // Piscina de tarjetas DOM para alto rendimiento (60-120fps)
     const cardPool = [];
-    const MAX_POOL_SIZE = 90;
+    const MAX_POOL_SIZE = 95;
 
-    // Generar la piscina de elementos DOM una sola vez
     function initCardPool() {
       for (let i = 0; i < MAX_POOL_SIZE; i++) {
         const wrapper = document.createElement('div');
@@ -385,7 +405,7 @@
           hoverRotY: 0
         };
 
-        // Eventos de hover interactivo
+        // Hover 3D + glow reactivo sin cortes
         wrapper.addEventListener('mousemove', (e) => {
           if (isCtrlPressed || lightboxActive) return;
           const rect = wrapper.getBoundingClientRect();
@@ -396,10 +416,13 @@
           cardItem.hoverRotY = -(normX - 0.5) * 22;
           cardItem.hovered = true;
 
-          // Encender brillo trasero vibrante
+          // Al hacer hover, se elimina el blur de inmediato para máxima nitidez
+          card.style.filter = 'none';
+
+          // Encender brillo trasero
           glow.style.opacity = '1';
           glow.style.background = `radial-gradient(circle at ${normX * 100}% ${normY * 100}%, rgba(100, 180, 255, 0.7) 0%, rgba(30, 80, 180, 0.35) 45%, transparent 75%)`;
-          inner.style.transform = `translateZ(50px) scale(1.08) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
+          inner.style.transform = `translateZ(55px) scale(1.09) rotateX(${cardItem.hoverRotX}deg) rotateY(${cardItem.hoverRotY}deg)`;
           inner.style.boxShadow = '0 32px 80px rgba(0, 0, 0, 0.85), 0 0 45px rgba(80, 160, 255, 0.45)';
         });
 
@@ -425,14 +448,12 @@
 
     initCardPool();
 
-    // ── Mapeo matemático determinista para duplicación infinita continua ──
-    // Garantiza que imágenes vecinas nunca sean idénticas y que el mosaico sea armónico
-    function getImageIndex(col, row, count) {
+    // ── Mapeo determinista de imágenes en la constelación ──
+    function getClusterImageIndex(u, v, nodeIndex, count) {
       if (count <= 1) return 0;
-      // Staggered pattern coprime
-      const k = (count % 2 === 0) ? (count - 1) : 3;
-      const val = col + row * k;
-      return ((val % count) + count) % count;
+      if (u === 0 && v === 0 && nodeIndex === 0) return 0; // Centro absoluto es siempre imagen 0
+      const seed = Math.abs(u * 73856093 ^ v * 19349663 ^ nodeIndex * 83492791);
+      return (seed + nodeIndex) % count;
     }
 
     // ── Optimización de imágenes en cliente con Canvas ──
@@ -511,12 +532,10 @@
       const cy = window.innerHeight / 2;
 
       if (isCtrlPressed) {
-        // Vector normalizado desde el centro [-1, 1]
         const ndx = (mouseX - cx) / cx;
         const ndy = (mouseY - cy) / cy;
         const dist = Math.min(Math.hypot(ndx, ndy), 1.5);
 
-        // Aceleración no lineal: en las esquinas se dispara la velocidad
         const speed = BASE_SPEED * (1 + Math.pow(dist, ACCEL_POWER) * 2.2);
 
         camera.targetX += ndx * speed;
@@ -524,7 +543,6 @@
         camera.vx = ndx * speed;
         camera.vy = ndy * speed;
       } else {
-        // Inercia suave y desaceleración
         camera.vx *= INERTIA_FRICTION;
         camera.vy *= INERTIA_FRICTION;
         if (Math.abs(camera.vx) < 0.05) camera.vx = 0;
@@ -534,12 +552,11 @@
         camera.targetY += camera.vy;
       }
 
-      // Suavizado lerp
       camera.x += (camera.targetX - camera.x) * LERP_SMOOTH;
       camera.y += (camera.targetY - camera.y) * LERP_SMOOTH;
     }
 
-    // ── Renderizado Infinito (Virtual Tiling + Fisheye 3D) ──
+    // ── Renderizado Infinito (Constelación Abstracta en Hexagrama + Desenfoque Óptico) ──
     function renderInfiniteGallery() {
       if (userImages.length === 0) return;
 
@@ -549,81 +566,93 @@
       const cy = winH / 2;
       const maxScreenDist = Math.hypot(cx, cy);
 
-      // Calcular rango de columnas y filas visibles alrededor de la cámara
-      const margin = 280;
-      const minScreenX = -margin;
-      const maxScreenX = winW + margin;
-      const minScreenY = -margin;
-      const maxScreenY = winH + margin;
-
-      const minRow = Math.floor((camera.y + minScreenY - cy) / STEP_Y) - 1;
-      const maxRow = Math.ceil((camera.y + maxScreenY - cy) / STEP_Y) + 1;
+      // Margen de detección para clusters estelares
+      const clusterMargin = 1000;
+      const minU = Math.floor((camera.x - cx - clusterMargin) / CLUSTER_DX) - 1;
+      const maxU = Math.ceil((camera.x + cx + clusterMargin) / CLUSTER_DX) + 1;
+      const minV = Math.floor((camera.y - cy - clusterMargin) / CLUSTER_DY) - 1;
+      const maxV = Math.ceil((camera.y + cy + clusterMargin) / CLUSTER_DY) + 1;
 
       let poolIndex = 0;
+      const screenPadding = 260;
 
-      for (let r = minRow; r <= maxRow; r++) {
-        // Desplazamiento alternado por fila (staggered masonry) para que nunca se vea rígido
-        const rowOffsetX = (Math.abs(r) % 2 !== 0) ? (STEP_X * 0.5) : 0;
-        const worldY = r * STEP_Y;
-        const screenY = worldY - camera.y + cy - (CARD_H / 2);
+      for (let v = minV; v <= maxV; v++) {
+        const clusterOffsetY = v * CLUSTER_DY;
+        const rowShiftX = (Math.abs(v) % 2 !== 0) ? (CLUSTER_DX * 0.5) : 0;
 
-        const minCol = Math.floor((camera.x + minScreenX - cx - rowOffsetX) / STEP_X) - 1;
-        const maxCol = Math.ceil((camera.x + maxScreenX - cx - rowOffsetX) / STEP_X) + 1;
+        for (let u = minU; u <= maxU; u++) {
+          const clusterOffsetX = u * CLUSTER_DX + rowShiftX;
 
-        for (let c = minCol; c <= maxCol; c++) {
-          if (poolIndex >= MAX_POOL_SIZE) break;
+          for (let k = 0; k < STAR_NODES.length; k++) {
+            if (poolIndex >= MAX_POOL_SIZE) break;
 
-          const worldX = c * STEP_X + rowOffsetX;
-          const screenX = worldX - camera.x + cx - (CARD_W / 2);
+            const node = STAR_NODES[k];
+            const worldX = clusterOffsetX + node.x;
+            const worldY = clusterOffsetY + node.y;
 
-          // Verificar si cae dentro del área visible + buffer
-          if (screenX + CARD_W < minScreenX || screenX > maxScreenX) continue;
-          if (screenY + CARD_H < minScreenY || screenY > maxScreenY) continue;
+            // Proyección en pantalla
+            const screenX = worldX - camera.x + cx - (CARD_W / 2);
+            const screenY = worldY - camera.y + cy - (CARD_H / 2);
 
-          // Tarjeta disponible en el pool
-          const cardItem = cardPool[poolIndex];
-          poolIndex++;
+            // Descartar si cae muy fuera de la ventana
+            if (screenX + CARD_W < -screenPadding || screenX > winW + screenPadding) continue;
+            if (screenY + CARD_H < -screenPadding || screenY > winH + screenPadding) continue;
 
-          // Determinar qué imagen le corresponde en el patrón infinito
-          const imgIdx = getImageIndex(c, r, userImages.length);
-          if (cardItem.imageIndex !== imgIdx) {
-            cardItem.imageIndex = imgIdx;
-            cardItem.img.src = userImages[imgIdx].thumb;
+            const cardItem = cardPool[poolIndex];
+            poolIndex++;
+
+            // Mapear imagen
+            const imgIdx = getClusterImageIndex(u, v, k, userImages.length);
+            if (cardItem.imageIndex !== imgIdx) {
+              cardItem.imageIndex = imgIdx;
+              cardItem.img.src = userImages[imgIdx].thumb;
+            }
+
+            // Distancia al centro de la pantalla
+            const cardCenterX = screenX + CARD_W / 2;
+            const cardCenterY = screenY + CARD_H / 2;
+            const deltaX = cardCenterX - cx;
+            const deltaY = cardCenterY - cy;
+            const dist = Math.hypot(deltaX, deltaY);
+            const normDist = Math.min(dist / maxScreenDist, 1.25);
+
+            // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
+            // 1. Hundimiento cuadrático en Z hacia las esquinas
+            const fisheyeZ = -Math.pow(normDist, 1.8) * MAX_SINK_Z;
+
+            // 2. Curvatura esférica
+            const angle = Math.atan2(deltaY, deltaX);
+            const tiltFactor = Math.pow(normDist, 1.2) * MAX_TILT;
+            const rotX = Math.sin(angle) * tiltFactor;
+            const rotY = -Math.cos(angle) * tiltFactor;
+
+            // 3. Rotación abstracta inherente a cada nodo estelar
+            const rotZ = node.tilt;
+
+            // 4. Escala ligera
+            const scale = Math.max(1.0 - normDist * 0.14, 0.78);
+
+            // 5. DESENFOQUE ÓPTICO EN BORDES (SIN OSCURIDAD / SIN NEGRO)
+            // Las tarjetas periféricas se desenfocan suavemente como en una lente bokeh
+            if (!cardItem.hovered) {
+              let blurPx = 0;
+              if (normDist > 0.40) {
+                blurPx = Math.pow((normDist - 0.40) / 0.60, 1.35) * 11;
+              }
+              cardItem.card.style.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
+            }
+
+            // Aplicar transformaciones 3D aceleradas
+            cardItem.wrapper.style.display = 'block';
+            cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg) scale(${scale})`;
+
+            // Las tarjetas del centro tienen mayor prioridad visual
+            cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.3 - normDist) * 35);
           }
-
-          // Distancia de la tarjeta al centro de la pantalla
-          const cardCenterX = screenX + CARD_W / 2;
-          const cardCenterY = screenY + CARD_H / 2;
-          const deltaX = cardCenterX - cx;
-          const deltaY = cardCenterY - cy;
-          const dist = Math.hypot(deltaX, deltaY);
-          const normDist = Math.min(dist / maxScreenDist, 1.2);
-
-          // ── EFECTO OJO DE PEZ (FISHEYE 3D) ──
-          // 1. Hundimiento cuadrático en Z hacia las esquinas
-          const fisheyeZ = -Math.pow(normDist, 1.8) * MAX_SINK_Z;
-
-          // 2. Curvatura esférica: rotar hacia el centro
-          const angle = Math.atan2(deltaY, deltaX);
-          const tiltFactor = Math.pow(normDist, 1.2) * MAX_TILT;
-          const rotX = Math.sin(angle) * tiltFactor;
-          const rotY = -Math.cos(angle) * tiltFactor;
-
-          // 3. Escala y opacidad suave en los extremos
-          const scale = Math.max(1.0 - normDist * 0.16, 0.75);
-          const opacity = Math.max(1.0 - Math.pow(normDist, 2.8) * 0.65, 0.15);
-
-          // Aplicar transformaciones 3D aceleradas por GPU
-          cardItem.wrapper.style.display = 'block';
-          cardItem.wrapper.style.transform = `translate3d(${screenX}px, ${screenY}px, ${fisheyeZ}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
-          cardItem.wrapper.style.opacity = opacity;
-
-          // Las tarjetas más cercanas al centro tienen mayor prioridad visual
-          cardItem.wrapper.style.zIndex = cardItem.hovered ? 99 : Math.round((1.2 - normDist) * 30);
         }
       }
 
-      // Ocultar tarjetas no usadas del pool
+      // Ocultar tarjetas libres del pool
       for (let i = poolIndex; i < MAX_POOL_SIZE; i++) {
         cardPool[i].wrapper.style.display = 'none';
       }
