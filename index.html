@@ -254,6 +254,26 @@
     #file-input {
       display: none;
     }
+
+    /* Indicador visual al arrastrar imágenes */
+    body.drag-over::after {
+      content: 'Suelta tus imágenes aquí';
+      position: fixed;
+      inset: 24px;
+      border: 2px dashed rgba(80, 60, 30, 0.45);
+      border-radius: 20px;
+      background: rgba(254, 250, 224, 0.90);
+      backdrop-filter: blur(10px);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #383424;
+      pointer-events: none;
+      box-shadow: 0 10px 40px rgba(70, 50, 20, 0.12);
+    }
   </style>
 </head>
 
@@ -279,8 +299,8 @@
     <svg viewBox="0 0 24 24">
       <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
     </svg>
-    <h2>Haz doble clic en la pantalla</h2>
-    <p>para cargar tus imágenes y explorar el lienzo infinito</p>
+    <h2>Arrastra tus imágenes o haz doble clic</h2>
+    <p>suelta tus archivos aquí para explorar el lienzo infinito</p>
   </div>
 
   <!-- Lightbox -->
@@ -906,16 +926,9 @@
       if (e.key === 'Escape' && lightboxActive) closeLightbox();
     });
 
-    // ── Carga de archivos por Doble Clic ──
-    document.addEventListener('dblclick', (e) => {
-      if (lightboxActive) return;
-      if (e.target.closest('.card-wrapper')) return;
-      if (e.target.closest('.lightbox-overlay')) return;
-      fileInput.click();
-    });
-
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
+    // ── Carga y procesamiento de imágenes ──
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
       if (files.length === 0) return;
 
       emptyState.style.display = 'none';
@@ -937,8 +950,52 @@
       } catch (err) {
         console.error('Error cargando imágenes:', err);
       }
+    }
 
+    // ── Carga por Clic / Doble Clic ──
+    emptyState.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    document.addEventListener('dblclick', (e) => {
+      if (lightboxActive) return;
+      if (e.target.closest('.card-wrapper')) return;
+      if (e.target.closest('.lightbox-overlay')) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      await loadFiles(e.target.files);
       fileInput.value = '';
+    });
+
+    // ── Carga por Arrastrar y Soltar (Drag & Drop) ──
+    ['dragenter', 'dragover'].forEach(name => {
+      window.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.body.classList.add('drag-over');
+      });
+    });
+
+    ['dragleave', 'dragend'].forEach(name => {
+      window.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.relatedTarget === null || e.clientX <= 0 || e.clientY <= 0) {
+          document.body.classList.remove('drag-over');
+        }
+      });
+    });
+
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.body.classList.remove('drag-over');
+      if (lightboxActive) return;
+      if (e.dataTransfer && e.dataTransfer.files) {
+        await loadFiles(e.dataTransfer.files);
+      }
     });
   </script>
 </body>
