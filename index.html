@@ -531,22 +531,44 @@
     }
 
     // ── Control de Navegación (Ctrl + Cursor & Mouse Drag & Wheel) ──
-    function handleCursorLeave() {
+    function deactivateApp() {
       isMouseInside = false;
       isCtrlPressed = false;
       isDragging = false;
       document.body.style.cursor = 'default';
       camera.vx = 0;
       camera.vy = 0;
+      camera.targetX = camera.x;
+      camera.targetY = camera.y;
+
+      for (let k = 0; k < cardPool.length; k++) {
+        const item = cardPool[k];
+        if (item.hovered) {
+          item.hovered = false;
+          item.hoverRotX = 0;
+          item.hoverRotY = 0;
+          item.inner.style.transform = 'translateZ(0px) scale(1) rotateX(0deg) rotateY(0deg)';
+          item.card.style.boxShadow = '';
+          item.card.style.borderColor = '';
+        }
+      }
     }
 
-    document.addEventListener('mouseleave', handleCursorLeave);
-    window.addEventListener('blur', handleCursorLeave);
+    document.addEventListener('mouseleave', deactivateApp);
+    window.addEventListener('blur', deactivateApp);
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) handleCursorLeave();
+      if (document.hidden) deactivateApp();
+    });
+
+    window.addEventListener('focus', () => {
+      camera.vx = 0;
+      camera.vy = 0;
+      camera.targetX = camera.x;
+      camera.targetY = camera.y;
     });
 
     document.addEventListener('keydown', (e) => {
+      if (!document.hasFocus()) return;
       if (e.key === 'Control') {
         isCtrlPressed = true;
         if (isMouseInside) document.body.style.cursor = 'crosshair';
@@ -570,6 +592,10 @@
     });
 
     document.addEventListener('mousemove', (e) => {
+      if (!document.hasFocus()) {
+        if (isMouseInside) deactivateApp();
+        return;
+      }
       isMouseInside = true;
       mouseX = e.clientX;
       mouseY = e.clientY;
@@ -589,7 +615,7 @@
 
     // Paneo con arrastre de ratón (opcional además de Ctrl)
     window.addEventListener('mousedown', (e) => {
-      if (lightboxActive || !isMouseInside || e.target.closest('.card-wrapper')) return;
+      if (!document.hasFocus() || lightboxActive || !isMouseInside || e.target.closest('.card-wrapper')) return;
       isDragging = true;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
@@ -599,13 +625,13 @@
     window.addEventListener('mouseup', () => {
       if (isDragging) {
         isDragging = false;
-        document.body.style.cursor = (isCtrlPressed && isMouseInside) ? 'crosshair' : 'default';
+        document.body.style.cursor = (isCtrlPressed && isMouseInside && document.hasFocus()) ? 'crosshair' : 'default';
       }
     });
 
     // Soporte para rueda de ratón / touchpad (requiere Ctrl presionado para evitar scroll involuntario en segundo plano)
     window.addEventListener('wheel', (e) => {
-      if (lightboxActive || !isMouseInside || !e.ctrlKey) return;
+      if (!document.hasFocus() || lightboxActive || !isMouseInside || !e.ctrlKey) return;
       e.preventDefault();
       camera.targetX += e.deltaX * 0.75;
       camera.targetY += e.deltaY * 0.75;
@@ -615,6 +641,14 @@
 
     // ── Actualización de Cámara con Autocentrado Magnético ──
     function updateCamera() {
+      if (!document.hasFocus()) {
+        camera.vx = 0;
+        camera.vy = 0;
+        camera.targetX = camera.x;
+        camera.targetY = camera.y;
+        return;
+      }
+
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
 
@@ -804,7 +838,7 @@
           // rotZ = 0deg
 
           // 4. Detección matemática de hover y desenfoque óptico (100% libre de eventos DOM)
-          const isHovered = isMouseInside && !isDragging && !lightboxActive &&
+          const isHovered = document.hasFocus() && isMouseInside && !isDragging && !lightboxActive &&
                             mouseX >= screenX && mouseX <= screenX + cardW &&
                             mouseY >= screenY && mouseY <= screenY + cardH;
 
