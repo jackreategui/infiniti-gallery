@@ -325,6 +325,7 @@
     let rafId = null;
     let isCtrlPressed = false;
     let isDragging = false;
+    let isMouseInside = document.hasFocus();
     let dragStartX = 0;
     let dragStartY = 0;
     let mouseX = window.innerWidth / 2;
@@ -530,10 +531,25 @@
     }
 
     // ── Control de Navegación (Ctrl + Cursor & Mouse Drag & Wheel) ──
+    function handleCursorLeave() {
+      isMouseInside = false;
+      isCtrlPressed = false;
+      isDragging = false;
+      document.body.style.cursor = 'default';
+      camera.vx = 0;
+      camera.vy = 0;
+    }
+
+    document.addEventListener('mouseleave', handleCursorLeave);
+    window.addEventListener('blur', handleCursorLeave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) handleCursorLeave();
+    });
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Control') {
         isCtrlPressed = true;
-        document.body.style.cursor = 'crosshair';
+        if (isMouseInside) document.body.style.cursor = 'crosshair';
       }
     });
 
@@ -554,6 +570,7 @@
     });
 
     document.addEventListener('mousemove', (e) => {
+      isMouseInside = true;
       mouseX = e.clientX;
       mouseY = e.clientY;
 
@@ -572,7 +589,7 @@
 
     // Paneo con arrastre de ratón (opcional además de Ctrl)
     window.addEventListener('mousedown', (e) => {
-      if (lightboxActive || e.target.closest('.card-wrapper')) return;
+      if (lightboxActive || !isMouseInside || e.target.closest('.card-wrapper')) return;
       isDragging = true;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
@@ -582,25 +599,26 @@
     window.addEventListener('mouseup', () => {
       if (isDragging) {
         isDragging = false;
-        document.body.style.cursor = isCtrlPressed ? 'crosshair' : 'default';
+        document.body.style.cursor = (isCtrlPressed && isMouseInside) ? 'crosshair' : 'default';
       }
     });
 
-    // Soporte para rueda de ratón / touchpad
+    // Soporte para rueda de ratón / touchpad (requiere Ctrl presionado para evitar scroll involuntario en segundo plano)
     window.addEventListener('wheel', (e) => {
-      if (lightboxActive) return;
+      if (lightboxActive || !isMouseInside || !e.ctrlKey) return;
+      e.preventDefault();
       camera.targetX += e.deltaX * 0.75;
       camera.targetY += e.deltaY * 0.75;
       camera.vx = e.deltaX * 0.35;
       camera.vy = e.deltaY * 0.35;
-    }, { passive: true });
+    }, { passive: false });
 
     // ── Actualización de Cámara con Autocentrado Magnético ──
     function updateCamera() {
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
 
-      if (isCtrlPressed) {
+      if (isCtrlPressed && isMouseInside) {
         const ndx = (mouseX - cx) / cx;
         const ndy = (mouseY - cy) / cy;
         const dist = Math.min(Math.hypot(ndx, ndy), 1.5);
@@ -786,7 +804,7 @@
           // rotZ = 0deg
 
           // 4. Detección matemática de hover y desenfoque óptico (100% libre de eventos DOM)
-          const isHovered = !isDragging && !lightboxActive &&
+          const isHovered = isMouseInside && !isDragging && !lightboxActive &&
                             mouseX >= screenX && mouseX <= screenX + cardW &&
                             mouseY >= screenY && mouseY <= screenY + cardH;
 
